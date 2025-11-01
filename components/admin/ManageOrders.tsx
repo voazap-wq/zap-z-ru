@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from 'react';
 import { useAppContext } from '../../hooks/useAppContext';
 import { useSortableData } from '../../hooks/useSortableData';
@@ -104,6 +103,7 @@ const ManageOrders: React.FC = () => {
             {sortedOrders.map(order => {
                 const user = users.find(u => u.id === order.userId);
                 const isExpanded = expandedIds.has(order.id);
+                const statusInfo = statusMap[order.status];
                 return (
                     <React.Fragment key={order.id}>
                         <tr 
@@ -121,10 +121,10 @@ const ManageOrders: React.FC = () => {
                                     value={order.status}
                                     onChange={(e) => handleStatusChange(order.id, e.target.value as Order['status'])}
                                     onClick={(e) => e.stopPropagation()}
-                                    className="p-1 border rounded bg-gray-50 dark:bg-gray-700 dark:border-gray-600 focus:ring-primary"
+                                    className={`px-3 py-1 text-xs font-medium rounded-full border-2 border-transparent focus:ring-2 focus:ring-offset-2 dark:focus:ring-offset-gray-800 focus:ring-primary ${statusInfo.bg} ${statusInfo.color}`}
                                 >
                                     {Object.entries(statusMap).map(([status, { text }]) => (
-                                        <option key={status} value={status}>{text}</option>
+                                        <option key={status} value={status} className="text-black dark:text-white bg-white dark:bg-gray-800">{text}</option>
                                     ))}
                                 </select>
                             </td>
