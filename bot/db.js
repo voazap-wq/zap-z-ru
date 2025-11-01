@@ -1,3 +1,4 @@
+
 const { Sequelize, DataTypes } = require('sequelize');
 
 // Получаем URL базы данных из переменных окружения

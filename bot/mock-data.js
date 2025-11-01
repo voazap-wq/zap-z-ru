@@ -1,3 +1,4 @@
+
 const mockProducts = [
   { id: 1, name: 'Тормозные колодки', price: 4500.00, sku: 'BP-CER-001' },
   { id: 2, name: 'Масляный фильтр Bosch', price: 750.00, sku: 'OF-SYN-002' },

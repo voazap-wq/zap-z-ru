@@ -1,3 +1,4 @@
+
 // types.ts
 
 export type UserRole = 'customer' | 'manager' | 'superadmin';

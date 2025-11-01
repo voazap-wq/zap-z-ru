@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Category } from '../../types';
 import Card from '../ui/Card';

@@ -14,6 +14,7 @@ import AuthDialog from './components/domain/AuthDialog';
 import CartView from './components/domain/CartView';
 import { api } from './services/api';
 import { Product, Category, NewsArticle, Page, SiteSettings, HomepageBlock, User, Order, Vehicle, Notification, CartItem, UserRole } from './types';
+import Snackbar from './components/ui/Snackbar';
 
 type PriceSort = 'none' | 'asc' | 'desc';
 type CurrentPage = 'home' | 'catalog' | 'profile' | 'admin' | 'page';
@@ -143,8 +144,15 @@ const MainApp: React.FC = () => {
 
 const App: React.FC = () => {
   const [isDarkMode, setIsDarkMode] = useState<boolean>(() => {
-    const stored = localStorage.getItem('isDarkMode');
-    return stored ? JSON.parse(stored) : window.matchMedia('(prefers-color-scheme: dark)').matches;
+    try {
+      const stored = localStorage.getItem('isDarkMode');
+      // Use system preference if nothing is stored
+      return stored ? JSON.parse(stored) : window.matchMedia('(prefers-color-scheme: dark)').matches;
+    } catch (error) {
+      console.error('Failed to parse dark mode setting from localStorage:', error);
+      // Fallback to system preference on error
+      return window.matchMedia('(prefers-color-scheme: dark)').matches;
+    }
   });
   const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity: any }>({ open: false, message: '', severity: 'info' });
 
@@ -164,6 +172,10 @@ const App: React.FC = () => {
   const [siteSettings, setSiteSettings] = useState<SiteSettings | null>(null);
   const [homepageBlocks, setHomepageBlocks] = useState<HomepageBlock[]>([]);
 
+  const showSnackbar = useCallback((message: string, severity = 'info') => {
+    setSnackbar({ open: true, message, severity });
+  }, []);
+
   // Initial Data Load
   useEffect(() => {
     Promise.all([
@@ -174,8 +186,11 @@ const App: React.FC = () => {
       setProducts(p); setCategories(c); setNews(n); setPages(pg);
       setSiteSettings(s); setHomepageBlocks(hb); setUsers(u);
       setOrders(o); setVehicles(v); setNotifications(nt);
+    }).catch(error => {
+        console.error("Failed to load initial data:", error);
+        showSnackbar("Не удалось загрузить данные. Попробуйте обновить страницу.", "error");
     });
-  }, []);
+  }, [showSnackbar]);
 
   useEffect(() => {
     localStorage.setItem('isDarkMode', JSON.stringify(isDarkMode));
@@ -202,10 +217,6 @@ const App: React.FC = () => {
         keywordsTag.setAttribute('content', siteSettings.seoKeywords || '');
     }
   }, [siteSettings]);
-
-  const showSnackbar = useCallback((message: string, severity = 'info') => {
-    setSnackbar({ open: true, message, severity });
-  }, []);
 
   // --- CONTEXT VALUE ---
   const login = async (email: string, password: string) => {
@@ -269,7 +280,7 @@ const App: React.FC = () => {
   // FIX: Added explicit return type and returned the new item to match AppContextType.
   const createHandler = <T, U>(apiFn: (data: T) => Promise<U>, setData: React.Dispatch<React.SetStateAction<U[]>>, name: string) => async (data: T): Promise<U> => {
     const newItem = await apiFn(data);
-    setData(prev => [newItem, ...prev]);
+    setData(prev => [newItem, ...prev as any]);
     showSnackbar(`${name} успешно создан`, 'success');
     return newItem;
   };
@@ -293,21 +304,21 @@ const App: React.FC = () => {
   };
   const deleteUser = deleteHandler(api.deleteUser, setUsers, 'Пользователь');
 
-  const createProduct = createHandler(api.createProduct, setProducts, 'Товар');
-  const updateProduct = updateHandler(api.updateProduct, setProducts, 'Товар');
-  const deleteProduct = deleteHandler(api.deleteProduct, setProducts, 'Товар');
+  const createProduct = createHandler(api.createProduct, setProducts as any, 'Товар');
+  const updateProduct = updateHandler(api.updateProduct, setProducts as any, 'Товар');
+  const deleteProduct = deleteHandler(api.deleteProduct, setProducts as any, 'Товар');
   
-  const createCategory = createHandler(api.createCategory, setCategories, 'Категория');
-  const updateCategory = updateHandler(api.updateCategory, setCategories, 'Категория');
-  const deleteCategory = deleteHandler(api.deleteCategory, setCategories, 'Категория');
+  const createCategory = createHandler(api.createCategory, setCategories as any, 'Категория');
+  const updateCategory = updateHandler(api.updateCategory, setCategories as any, 'Категория');
+  const deleteCategory = deleteHandler(api.deleteCategory, setCategories as any, 'Категория');
 
-  const createNews = createHandler(api.createNews, setNews, 'Новость');
-  const updateNews = updateHandler(api.updateNews, setNews, 'Новость');
-  const deleteNews = deleteHandler(api.deleteNews, setNews, 'Новость');
+  const createNews = createHandler(api.createNews, setNews as any, 'Новость');
+  const updateNews = updateHandler(api.updateNews, setNews as any, 'Новость');
+  const deleteNews = deleteHandler(api.deleteNews, setNews as any, 'Новость');
 
-  const createPage = createHandler(api.createPage, setPages, 'Страница');
-  const updatePage = updateHandler(api.updatePage, setPages, 'Страница');
-  const deletePage = deleteHandler(api.deletePage, setPages, 'Страница');
+  const createPage = createHandler(api.createPage, setPages as any, 'Страница');
+  const updatePage = updateHandler(api.updatePage, setPages as any, 'Страница');
+  const deletePage = deleteHandler(api.deletePage, setPages as any, 'Страница');
 
   // FIX: Returned the updated order to match AppContextType.
   const updateOrderStatus = async (orderId: string, status: Order['status']) => {
@@ -377,6 +388,12 @@ const App: React.FC = () => {
       updateSiteSettings, updateHomepageBlocks
     }}>
         <MainApp />
+        <Snackbar
+          open={snackbar.open}
+          message={snackbar.message}
+          severity={snackbar.severity}
+          onClose={() => setSnackbar(prev => ({ ...prev, open: false }))}
+        />
     </AppContextProvider>
   );
 };

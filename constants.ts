@@ -1,3 +1,4 @@
+
 import { Product, Category, NewsArticle } from './types';
 
 export const mockProducts: Product[] = [

@@ -1,6 +1,5 @@
 import React, { createContext, ReactNode } from 'react';
 import { AppContextType } from '../types';
-import Snackbar from '../components/ui/Snackbar';
 
 export const AppContext = createContext<AppContextType | undefined>(undefined);
 
