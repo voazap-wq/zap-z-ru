@@ -3,7 +3,7 @@ import { useAppContext } from '../../hooks/useAppContext';
 import { useSortableData } from '../../hooks/useSortableData';
 import { Order, User } from '../../types';
 import IconButton from '../ui/IconButton';
-import TextField from '../ui/TextField';
+import Card from '../ui/Card';
 
 const statusMap: Record<Order['status'], { text: string; color: string; bg: string }> = {
   pending: { text: 'В обработке', color: 'text-yellow-800 dark:text-yellow-300', bg: 'bg-yellow-100 dark:bg-yellow-900/30' },
@@ -35,24 +35,32 @@ const ManageOrders: React.FC = () => {
   };
 
   const filteredOrders = useMemo(() => {
-    if (!searchQuery) return orders;
-    const lowercasedQuery = searchQuery.toLowerCase();
-    
+    const lowercasedQuery = searchQuery.toLowerCase().trim();
+    if (!lowercasedQuery) {
+        return orders;
+    }
+
     return orders.filter(order => {
         const user = users.find(u => u.id === order.userId);
-        const searchInUser = user && (
-            user.fullName.toLowerCase().includes(lowercasedQuery) ||
-            (user.phone && user.phone.replace(/\D/g, '').includes(lowercasedQuery.replace(/\D/g, '')))
-        );
+        const formattedDate = new Date(order.createdAt).toLocaleDateString('ru-RU');
+        const statusText = statusMap[order.status].text.toLowerCase();
+        const cleanedPhoneQuery = lowercasedQuery.replace(/\D/g, '');
 
-        const searchInOrder = 
-            String(order.orderNumber).includes(lowercasedQuery) ||
+        const checks = [
+            String(order.orderNumber).toLowerCase().includes(lowercasedQuery),
+            order.customerName.toLowerCase().includes(lowercasedQuery),
+            statusText.includes(lowercasedQuery),
+            formattedDate.includes(lowercasedQuery),
+            order.createdAt.substring(0, 10).includes(lowercasedQuery),
+            String(order.total).includes(lowercasedQuery),
+            cleanedPhoneQuery.length > 0 && user?.phone?.replace(/\D/g, '').includes(cleanedPhoneQuery),
             order.items.some(item =>
                 item.name.toLowerCase().includes(lowercasedQuery) ||
                 item.sku.toLowerCase().includes(lowercasedQuery)
-            );
+            )
+        ];
 
-        return searchInUser || searchInOrder;
+        return checks.some(Boolean);
     });
   }, [orders, users, searchQuery]);
   
@@ -70,20 +78,27 @@ const ManageOrders: React.FC = () => {
             <span className="material-icons text-base">{getSortIcon(sortKey)}</span>
         </button>
     </th>
-  )
-
+  );
+  
   return (
     <div>
       <h1 className="text-2xl font-bold mb-4">Управление заказами</h1>
-      <div className="mb-4 max-w-md">
-         <TextField 
-            id="search"
-            label=""
-            placeholder="Поиск по номеру заказа, клиенту, телефону, товару..."
+      
+      <div className="mb-4 relative">
+          <span className="material-icons absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400">search</span>
+          <input
+            type="search"
+            placeholder="Поиск по №, клиенту, статусу, дате, сумме..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            register={{} as any} // Not using react-hook-form here
-        />
+            className="w-full pl-10 pr-10 py-2 border rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 border-gray-300 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-primary"
+            aria-label="Поиск заказов"
+          />
+          {searchQuery && (
+              <button onClick={() => setSearchQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-800 dark:hover:text-gray-200">
+                  <span className="material-icons">close</span>
+              </button>
+          )}
       </div>
 
       <div className="overflow-x-auto bg-white dark:bg-gray-800 rounded-lg shadow">
@@ -104,6 +119,9 @@ const ManageOrders: React.FC = () => {
                 const user = users.find(u => u.id === order.userId);
                 const isExpanded = expandedIds.has(order.id);
                 const statusInfo = statusMap[order.status];
+                const statusSelectBg = statusMap[order.status]?.bg || 'bg-gray-100 dark:bg-gray-900/30';
+                const statusSelectText = statusMap[order.status]?.color || 'text-gray-800 dark:text-gray-300';
+
                 return (
                     <React.Fragment key={order.id}>
                         <tr 
@@ -121,7 +139,11 @@ const ManageOrders: React.FC = () => {
                                     value={order.status}
                                     onChange={(e) => handleStatusChange(order.id, e.target.value as Order['status'])}
                                     onClick={(e) => e.stopPropagation()}
-                                    className={`px-3 py-1 text-xs font-medium rounded-full border-2 border-transparent focus:ring-2 focus:ring-offset-2 dark:focus:ring-offset-gray-800 focus:ring-primary ${statusInfo.bg} ${statusInfo.color}`}
+                                    style={{ 
+                                      backgroundColor: statusMap[order.status]?.bg.startsWith('bg-') ? '' : statusMap[order.status]?.bg,
+                                      color: statusMap[order.status]?.color.startsWith('text-') ? '' : statusMap[order.status]?.color,
+                                    }}
+                                    className={`appearance-none text-center px-3 py-1 text-xs font-medium rounded-full border-2 border-transparent focus:outline-none focus:ring-2 focus:ring-offset-2 dark:focus:ring-offset-gray-800 focus:ring-primary ${statusSelectBg} ${statusSelectText}`}
                                 >
                                     {Object.entries(statusMap).map(([status, { text }]) => (
                                         <option key={status} value={status} className="text-black dark:text-white bg-white dark:bg-gray-800">{text}</option>
