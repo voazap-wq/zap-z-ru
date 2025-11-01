@@ -1,4 +1,3 @@
-
 import React, { useEffect } from 'react';
 import { useForm, SubmitHandler } from 'react-hook-form';
 import { NewsArticle } from '../../types';
@@ -30,7 +29,7 @@ const NewsDialog: React.FC<NewsDialogProps> = ({ isOpen, onClose, article }) => 
             title: '',
             excerpt: '',
             content: '',
-            imageUrl: 'https://picsum.photos/seed/newnews/400/300'
+            imageUrl: 'https://images.unsplash.com/photo-1495020689067-958852a7765e?w=400&auto=format&fit=crop&q=60'
         });
       }
     }

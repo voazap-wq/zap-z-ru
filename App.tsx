@@ -142,6 +142,20 @@ const MainApp: React.FC = () => {
     );
 };
 
+// Helper to get initial user state from localStorage
+const getInitialUser = (): User | null => {
+  try {
+    const storedUser = localStorage.getItem('app_currentUser');
+    if (storedUser) {
+      return JSON.parse(storedUser);
+    }
+  } catch (error) {
+    console.error("Failed to parse user from localStorage", error);
+    localStorage.removeItem('app_currentUser'); // Clear corrupted data
+  }
+  return null;
+};
+
 const App: React.FC = () => {
   const [isDarkMode, setIsDarkMode] = useState<boolean>(() => {
     try {
@@ -156,8 +170,8 @@ const App: React.FC = () => {
   });
   const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity: any }>({ open: false, message: '', severity: 'info' });
 
-  // Auth State
-  const [user, setUser] = useState<User | null>(null);
+  // Auth State - initialized from localStorage
+  const [user, setUser] = useState<User | null>(getInitialUser);
   const [cart, setCart] = useState<CartItem[]>([]);
 
   // Data State
@@ -221,15 +235,22 @@ const App: React.FC = () => {
   // --- CONTEXT VALUE ---
   const login = async (email: string, password: string) => {
     const loggedInUser = await api.login(email, password);
+    localStorage.setItem('app_currentUser', JSON.stringify(loggedInUser));
     setUser(loggedInUser);
     showSnackbar('Вход выполнен успешно!', 'success');
   };
   const register = async (fullName: string, email: string, password: string) => {
     const newUser = await api.register(fullName, email, password);
+    localStorage.setItem('app_currentUser', JSON.stringify(newUser));
     setUser(newUser);
     showSnackbar('Регистрация прошла успешно!', 'success');
   };
-  const logout = () => { setUser(null); setCart([]); showSnackbar('Вы вышли из системы.'); };
+  const logout = () => { 
+    localStorage.removeItem('app_currentUser');
+    setUser(null); 
+    setCart([]); 
+    showSnackbar('Вы вышли из системы.'); 
+  };
   const addToCart = (product: Product) => {
     setCart(prev => {
       const existing = prev.find(item => item.id === product.id);
@@ -259,6 +280,7 @@ const App: React.FC = () => {
   const updateUser = async (data: Partial<Omit<User, 'id' | 'email' | 'role'>>) => {
     if (!user) throw new Error('Пользователь не авторизован');
     const updatedUser = await api.updateUserProfile(user.id, data);
+    localStorage.setItem('app_currentUser', JSON.stringify(updatedUser)); // Keep session in sync
     setUser(updatedUser);
     setUsers(prev => prev.map(u => u.id === updatedUser.id ? updatedUser : u));
     showSnackbar('Профиль обновлен', 'success');

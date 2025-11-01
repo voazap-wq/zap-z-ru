@@ -1,4 +1,3 @@
-
 import React, { useEffect } from 'react';
 import { useForm, SubmitHandler } from 'react-hook-form';
 import { Product } from '../../types';
@@ -30,7 +29,7 @@ const ProductDialog: React.FC<ProductDialogProps> = ({ isOpen, onClose, product 
                 name: '',
                 categoryId: categories[0]?.id || '',
                 price: 0,
-                imageUrl: 'https://picsum.photos/seed/newproduct/400/300',
+                imageUrl: 'https://images.unsplash.com/photo-1581291518857-4e27b48ff24e?w=400&auto=format&fit=crop&q=60',
                 description: '',
                 sku: '',
                 brand: '',
