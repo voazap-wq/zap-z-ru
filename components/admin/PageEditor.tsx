@@ -232,12 +232,10 @@ const PageEditor: React.FC<PageEditorProps> = ({ page, onFinish }) => {
     const cleanContent = (blocks: PageBlock[]): PageBlock[] => {
         return blocks.map(block => {
             if (block.type === 'products') {
-                // FIX: The form input provides productIds as a comma-separated string,
-                // but the type is number[]. Cast to unknown to handle both cases.
                 const rawIds: unknown = block.productIds;
                 const productIdsAsArray = typeof rawIds === 'string'
-                    ? rawIds.split(',').map(id => parseInt(id.trim(), 10)).filter(id => !isNaN(id))
-                    : (Array.isArray(rawIds) ? rawIds.map(Number).filter(id => !isNaN(id)) : []);
+                    ? rawIds.split(',').map(id => id.trim()).filter(Boolean)
+                    : (Array.isArray(rawIds) ? rawIds.map(String).filter(Boolean) : []);
                 return { ...block, productIds: productIdsAsArray };
             }
             if (block.type === 'columns') {

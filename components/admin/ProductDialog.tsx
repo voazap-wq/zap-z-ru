@@ -56,6 +56,8 @@ const ProductDialog: React.FC<ProductDialogProps> = ({ isOpen, onClose, product 
   const onSubmit: SubmitHandler<FormData> = async (data) => {
     const productData = {
         ...data,
+        // FIX: The `inStock` property must be derived from `stockQuantity` to match the `Product` type.
+        inStock: (data.stockQuantity || 0) > 0,
         arrivalDate: data.arrivalDate ? new Date(data.arrivalDate).toISOString() : undefined,
         analogs: Array.isArray(data.analogs) ? data.analogs : (data.analogs as unknown as string).split(',').map(s => s.trim()).filter(Boolean)
     };

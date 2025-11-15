@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useAppContext } from '../../hooks/useAppContext';
 import Card from '../ui/Card';
 import Button from '../ui/Button';
@@ -45,7 +45,8 @@ interface DashboardProps {
 }
 
 const Dashboard: React.FC<DashboardProps> = ({ onNavigateTab }) => {
-    const { user, products, users, orders, notifications } = useAppContext();
+    const { user, products, users, orders, notifications, seedDatabase } = useAppContext();
+    const [isSeeding, setIsSeeding] = useState(false);
     const recentNotifications = notifications.slice(0, 4);
 
     const getNotificationIcon = (title: string) => {
@@ -55,9 +56,30 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigateTab }) => {
         return 'notifications';
     };
 
+    const handleSeed = async () => {
+        setIsSeeding(true);
+        await seedDatabase();
+        // The component will re-render as products are loaded, so we don't need to set isSeeding to false.
+    };
+    
+    const showSeedButton = (user?.role === 'superadmin' || user?.role === 'manager') && products.length === 0;
+
     return (
         <div>
             <h1 className="text-2xl font-bold mb-4">Добро пожаловать, {user?.fullName}!</h1>
+             {showSeedButton && (
+                <Card className="mb-6 p-4 bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-700">
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <h3 className="font-semibold text-blue-800 dark:text-blue-200">База данных пуста</h3>
+                            <p className="text-sm text-blue-700 dark:text-blue-300">Нажмите, чтобы загрузить демонстрационные товары, категории и новости.</p>
+                        </div>
+                        <Button onClick={handleSeed} disabled={isSeeding}>
+                            {isSeeding ? 'Загрузка...' : 'Загрузить демо-данные'}
+                        </Button>
+                    </div>
+                </Card>
+            )}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 <StatCard icon="inventory_2" title="Всего товаров" value={products.length} color="bg-blue-500" />
                 <StatCard icon="group" title="Пользователей" value={users.length} color="bg-green-500" />

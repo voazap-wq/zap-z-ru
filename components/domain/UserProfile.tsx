@@ -1,4 +1,3 @@
-
 import React, { useEffect } from 'react';
 import { useForm, SubmitHandler } from 'react-hook-form';
 import { useAppContext } from '../../hooks/useAppContext';
@@ -14,7 +13,7 @@ type FormData = {
 };
 
 const UserProfile: React.FC = () => {
-  const { user, updateUser, logout } = useAppContext();
+  const { user, updateUser, logout, selfPromoteAdmin } = useAppContext();
   const { register, handleSubmit, formState: { errors, isSubmitting, isDirty }, reset } = useForm<FormData>();
   
   useEffect(() => {
@@ -26,6 +25,15 @@ const UserProfile: React.FC = () => {
       });
     }
   }, [user, reset]);
+
+  useEffect(() => {
+    const hasAttemptedAdminFix = localStorage.getItem('admin_role_fix_attempted');
+    if (!hasAttemptedAdminFix && user && user.email === 'admin@example.com' && user.role === 'customer') {
+        localStorage.setItem('admin_role_fix_attempted', 'true');
+        selfPromoteAdmin();
+    }
+  }, [user, selfPromoteAdmin]);
+
 
   if (!user) {
     return <p>Загрузка данных пользователя...</p>;

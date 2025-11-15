@@ -60,7 +60,9 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ initialTab = 'profile', onVin
       case 'notifications':
         return <Notifications />;
       case 'admin':
-        return isAdmin ? <AdminPage onNavigateTab={setActiveTab} /> : null;
+        // FIX: The `setActiveTab` function has a wider type than `onNavigateTab` expects.
+        // It must be wrapped in an arrow function to ensure type compatibility.
+        return isAdmin ? <AdminPage onNavigateTab={(tab) => setActiveTab(tab)} /> : null;
       case 'profile':
       default:
         return <UserProfile />;
@@ -71,8 +73,8 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ initialTab = 'profile', onVin
     <div>
       <h1 className="text-3xl font-bold mb-6">Личный кабинет</h1>
       <div className="mb-6">
-        {/* FIX: Wrapped state setter in an arrow function to match the onTabClick prop type. */}
-        <Tabs tabs={tabs} activeTab={activeTab} onTabClick={(tabId) => setActiveTab(tabId)} />
+        {/* FIX: Wrapped state setter in an arrow function to match the onTabClick prop type, resolving a TypeScript error where the dispatcher type was incompatible with the expected callback signature. */}
+        <Tabs tabs={tabs} activeTab={activeTab} onTabClick={(tab) => setActiveTab(tab)} />
       </div>
       <div>
         {renderContent()}

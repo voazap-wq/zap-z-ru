@@ -15,6 +15,10 @@ import { Product, Category, NewsArticle, Page, SiteSettings, HomepageBlock, User
 import Snackbar from './components/ui/Snackbar';
 import TopBar from './components/layout/TopBar';
 import ManagerCheckoutDialog from './components/domain/ManagerCheckoutDialog';
+import { auth } from './services/firebase';
+import { onAuthStateChanged } from 'firebase/auth';
+import Card from './components/ui/Card';
+import Button from './components/ui/Button';
 
 type PriceSort = 'none' | 'asc' | 'desc';
 type CurrentPage = 'home' | 'catalog' | 'profile' | 'admin' | 'page';
@@ -25,7 +29,6 @@ const MainApp: React.FC = () => {
       products, 
       categories,
       pages,
-      showSnackbar,
       placeOrder: placeOrderFromContext,
       createCustomerByManager,
     } = useAppContext();
@@ -131,7 +134,9 @@ const MainApp: React.FC = () => {
       .sort((a, b) => {
           if (priceSort === 'asc') return a.price - b.price;
           if (priceSort === 'desc') return b.price - a.price;
-          return 0;
+          const skuA = parseInt(a.sku.replace( /^\D+/g, ''), 10) || 0;
+          const skuB = parseInt(b.sku.replace( /^\D+/g, ''), 10) || 0;
+          return skuA - skuB;
       });
 
     const availableBrands = [...new Set(products.map(p => p.brand))];
@@ -206,19 +211,6 @@ const MainApp: React.FC = () => {
     );
 };
 
-const getInitialUser = (): User | null => {
-  try {
-    const storedUser = localStorage.getItem('app_currentUser');
-    if (storedUser) {
-      return JSON.parse(storedUser);
-    }
-  } catch (error) {
-    console.error("Failed to parse user from localStorage", error);
-    localStorage.removeItem('app_currentUser'); 
-  }
-  return null;
-};
-
 const getInitialTheme = (): Theme => {
   try {
     const storedTheme = localStorage.getItem('app_theme');
@@ -237,6 +229,10 @@ const App: React.FC = () => {
   const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity: any }>({ open: false, message: '', severity: 'info' });
 
   const [isDarkMode, setIsDarkMode] = useState<boolean>(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSeeding, setIsSeeding] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [seedError, setSeedError] = useState<string | null>(null);
   
   useEffect(() => {
     const updateDarkMode = () => {
@@ -266,7 +262,7 @@ const App: React.FC = () => {
     }
   }, [theme, isDarkMode]);
 
-  const [user, setUser] = useState<User | null>(getInitialUser);
+  const [user, setUser] = useState<User | null>(null);
   const [cart, setCart] = useState<CartItem[]>([]);
 
   const [products, setProducts] = useState<Product[]>([]);
@@ -284,21 +280,63 @@ const App: React.FC = () => {
   const showSnackbar = useCallback((message: string, severity = 'info') => {
     setSnackbar({ open: true, message, severity });
   }, []);
+  
+  const loadData = useCallback(async () => {
+    setIsLoading(true);
+    setLoadError(null);
+    try {
+        const [p, c, n, pg, s, hb, u, o, v, nt, ih] = await Promise.all([
+            api.getProducts(), api.getCategories(), api.getNews(), api.getPages(),
+            api.getSiteSettings(), api.getHomepageBlocks(), api.getUsers(),
+            api.getOrders(), api.getVehicles(), api.getNotifications(), api.getImportHistory()
+        ]);
+        setProducts(p); setCategories(c); setNews(n); setPages(pg);
+        setSiteSettings(s); setHomepageBlocks(hb); setUsers(u);
+        setOrders(o); setVehicles(v); setNotifications(nt); setImportHistory(ih);
+    } catch (error) {
+        console.error("Failed to load initial data:", error);
+        const errorMessage = error instanceof Error ? error.message : "Не удалось загрузить данные. Проверьте правила безопасности Firestore и обновите страницу.";
+        setLoadError(errorMessage);
+        showSnackbar(errorMessage, "error");
+    } finally {
+        setIsLoading(false);
+    }
+  }, [showSnackbar]);
+
+  const seedDatabase = useCallback(async () => {
+    setIsSeeding(true);
+    setSeedError(null);
+    try {
+      await api.seedDatabase();
+      showSnackbar('Демо-данные успешно загружены!', 'success');
+      await loadData(); // Reload all data after seeding
+    } catch (error) {
+      console.error("Database seeding failed:", error);
+      const errorMessage = error instanceof Error ? error.message : 'Ошибка при загрузке демо-данных.';
+      setSeedError(errorMessage);
+    } finally {
+        setIsSeeding(false);
+    }
+  }, [loadData, showSnackbar]);
 
   useEffect(() => {
-    Promise.all([
-      api.getProducts(), api.getCategories(), api.getNews(), api.getPages(),
-      api.getSiteSettings(), api.getHomepageBlocks(), api.getUsers(),
-      api.getOrders(), api.getVehicles(), api.getNotifications(), api.getImportHistory()
-    ]).then(([p, c, n, pg, s, hb, u, o, v, nt, ih]) => {
-      setProducts(p); setCategories(c); setNews(n); setPages(pg);
-      setSiteSettings(s); setHomepageBlocks(hb); setUsers(u);
-      setOrders(o); setVehicles(v); setNotifications(nt); setImportHistory(ih);
-    }).catch(error => {
-        console.error("Failed to load initial data:", error);
-        showSnackbar("Не удалось загрузить данные. Попробуйте обновить страницу.", "error");
+    loadData();
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+        if (firebaseUser) {
+            const userProfile = await api.getUserProfile(firebaseUser.uid);
+            if (userProfile) {
+                setUser(userProfile);
+            } else {
+                // This might happen if the user record in Firestore is deleted but they are still logged in
+                setUser(null);
+            }
+        } else {
+            setUser(null);
+        }
     });
-  }, [showSnackbar]);
+    return () => unsubscribe();
+  }, [loadData]);
+
 
   useEffect(() => {
     if (siteSettings) {
@@ -320,20 +358,18 @@ const App: React.FC = () => {
   }, [siteSettings]);
 
   const login = async (email: string, password: string) => {
-    const loggedInUser = await api.login(email, password);
-    localStorage.setItem('app_currentUser', JSON.stringify(loggedInUser));
-    setUser(loggedInUser);
+    await api.login(email, password);
+    // onAuthStateChanged will handle setting the user state
     showSnackbar('Вход выполнен успешно!', 'success');
   };
   const register = async (fullName: string, email: string, password: string) => {
-    const newUser = await api.register(fullName, email, password);
-    localStorage.setItem('app_currentUser', JSON.stringify(newUser));
-    setUser(newUser);
-    api.getNotifications().then(setNotifications);
+    await api.register(fullName, email, password);
+    // onAuthStateChanged will handle setting the user state
+    await api.getNotifications().then(setNotifications);
     showSnackbar('Регистрация прошла успешно!', 'success');
   };
-  const logout = () => { 
-    localStorage.removeItem('app_currentUser');
+  const logout = async () => { 
+    await api.logout();
     setUser(null); 
     setCart([]); 
     showSnackbar('Вы вышли из системы.'); 
@@ -346,8 +382,8 @@ const App: React.FC = () => {
     });
     showSnackbar(`"${product.name}" добавлен в корзину`, 'success');
   };
-  const removeFromCart = (productId: number) => setCart(prev => prev.filter(item => item.id !== productId));
-  const updateCartQuantity = (productId: number, quantity: number) => {
+  const removeFromCart = (productId: string) => setCart(prev => prev.filter(item => item.id !== productId));
+  const updateCartQuantity = (productId: string, quantity: number) => {
     if (quantity < 1) removeFromCart(productId);
     else setCart(prev => prev.map(item => (item.id === productId ? { ...item, quantity } : item)));
   };
@@ -394,7 +430,6 @@ const App: React.FC = () => {
   const updateUser = async (data: Partial<Omit<User, 'id' | 'email' | 'role'>>) => {
     if (!user) throw new Error('Пользователь не авторизован');
     const updatedUser = await api.updateUserProfile(user.id, data);
-    localStorage.setItem('app_currentUser', JSON.stringify(updatedUser)); 
     setUser(updatedUser);
     setUsers(prev => prev.map(u => u.id === updatedUser.id ? updatedUser : u));
     showSnackbar('Профиль обновлен', 'success');
@@ -439,8 +474,26 @@ const App: React.FC = () => {
   const updateUserRole = async (userId: string, role: UserRole) => {
       const updatedUser = await api.updateUserRole(userId, role);
       setUsers(prev => prev.map(u => u.id === userId ? updatedUser : u));
+      if (user?.id === userId) {
+          setUser(updatedUser);
+      }
       showSnackbar(`Роль пользователя ${updatedUser.fullName} обновлена`, 'success');
   };
+
+  const selfPromoteAdmin = useCallback(async () => {
+    if (user && user.email === 'admin@example.com' && user.role === 'customer') {
+        try {
+            const updatedUser = await api.updateUserRole(user.id, 'superadmin');
+            setUser(updatedUser);
+            showSnackbar('Ваша роль администратора была восстановлена. Страница будет перезагружена.', 'success');
+            setTimeout(() => window.location.reload(), 2000);
+        } catch (error) {
+            const message = error instanceof Error ? error.message : 'Не удалось восстановить права администратора.';
+            showSnackbar(message, 'error');
+        }
+    }
+  }, [user, showSnackbar]);
+
   const deleteUser = deleteHandler(api.deleteUser, setUsers, 'Пользователь');
 
   const createProduct = createHandler(api.createProduct, setProducts as any, 'Товар');
@@ -505,7 +558,7 @@ const App: React.FC = () => {
     return updatedOrder;
   };
   
-  const updateOrderItemStatus = async (orderId: string, productId: number, status: OrderItemStatus) => {
+  const updateOrderItemStatus = async (orderId: string, productId: string, status: OrderItemStatus) => {
     const updatedOrder = await api.updateOrderItemStatus(orderId, productId, status);
     setOrders(prev => prev.map(o => o.id === orderId ? updatedOrder : o));
     showSnackbar(`Статус товара в заказе #${updatedOrder.orderNumber} обновлен`, 'success');
@@ -537,7 +590,75 @@ const App: React.FC = () => {
   };
 
 
-  if (!siteSettings) return <div className="flex items-center justify-center min-h-screen">Загрузка...</div>;
+  if (isLoading) {
+    return <div className="flex items-center justify-center min-h-screen">Загрузка...</div>;
+  }
+
+  if (loadError) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen text-center p-6 bg-gray-100 dark:bg-gray-900">
+        <Card className="p-8 max-w-lg w-full">
+            <span className="material-icons text-6xl text-red-500 mb-4">error_outline</span>
+            <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-200 mb-2">Ошибка загрузки данных</h2>
+            <p className="text-gray-600 dark:text-gray-400 mb-6">
+                Не удалось подключиться к базе данных. Пожалуйста, убедитесь, что вы выполнили все шаги по настройке Firebase.
+            </p>
+            <div className="text-left text-sm space-y-2 text-gray-700 dark:text-gray-300 bg-gray-50 dark:bg-gray-800 p-4 rounded-lg border dark:border-gray-700">
+               <p><strong>Возможные причины:</strong></p>
+               <ul className="list-disc list-inside pl-2">
+                    <li>База данных Firestore не создана в проекте Firebase.</li>
+                    <li>Неправильно настроены <strong className="font-semibold">Правила безопасности (Rules)</strong> в Firestore.</li>
+                    <li>Проблема с сетевым подключением.</li>
+                </ul>
+            </div>
+            <p className="mt-4 text-xs text-red-500 bg-red-50 dark:bg-red-900/20 p-2 rounded-md break-all">
+                <span className="font-semibold">Техническая информация:</span> {loadError}
+            </p>
+            <Button onClick={loadData} className="mt-8 w-full">
+                Попробовать снова
+            </Button>
+        </Card>
+      </div>
+    );
+  }
+
+  if (!siteSettings) {
+      return (
+        <div className="flex flex-col items-center justify-center min-h-screen text-center p-6 bg-gray-100 dark:bg-gray-900">
+            <Card className="p-8 max-w-lg w-full">
+                <span className="material-icons text-6xl text-primary mb-4">storefront</span>
+                <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-200 mb-2">Добро пожаловать!</h2>
+                <p className="text-gray-600 dark:text-gray-400 mb-6">
+                    Похоже, это ваш первый запуск. База данных пуста. Нажмите кнопку ниже, чтобы загрузить демонстрационные данные и создать аккаунт администратора.
+                </p>
+                <div className="text-left text-sm space-y-2 text-gray-700 dark:text-gray-300 bg-gray-50 dark:bg-gray-800 p-4 rounded-lg border dark:border-gray-700">
+                    <p><strong>Будет создано:</strong></p>
+                    <ul className="list-disc list-inside pl-2">
+                        <li>Демонстрационные товары и категории.</li>
+                        <li>Тестовые аккаунты:</li>
+                        <li className="ml-4 font-mono">admin@example.com (Админ)</li>
+                        <li className="ml-4 font-mono">ivan@example.com (Клиент)</li>
+                        <li>Пароль для обоих: <strong className="font-semibold">password</strong></li>
+                    </ul>
+                </div>
+                {seedError && (
+                    <div className="mt-6 text-left p-4 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-700/50">
+                        <div className="flex">
+                            <span className="material-icons text-red-500 mr-3">error</span>
+                            <div>
+                                <h3 className="font-bold text-red-800 dark:text-red-200">Ошибка инициализации</h3>
+                                <p className="mt-1 text-sm text-red-700 dark:text-red-300">{seedError}</p>
+                            </div>
+                        </div>
+                    </div>
+                )}
+                <Button onClick={seedDatabase} disabled={isSeeding} className="mt-8 w-full">
+                    {isSeeding ? 'Загрузка...' : seedError ? 'Попробовать снова' : 'Загрузить демо-данные'}
+                </Button>
+            </Card>
+        </div>
+      );
+  }
 
   return (
     <AppContextProvider value={{
@@ -547,6 +668,7 @@ const App: React.FC = () => {
       cart, addToCart, removeFromCart, updateCartQuantity, clearCart,
       products, categories, news, pages, users, orders, vehicles, notifications, siteSettings, homepageBlocks, importHistory,
       updateUser, addVehicle, deleteVehicle, placeOrder,
+      seedDatabase, selfPromoteAdmin,
       createCustomerByManager,
       markNotificationAsRead, markAllNotificationsAsRead,
       updateUserRole, deleteUser,

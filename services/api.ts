@@ -1,534 +1,385 @@
 // services/api.ts
+import { db, auth } from './firebase';
+import { 
+    collection, getDocs, doc, getDoc, setDoc, addDoc, updateDoc, deleteDoc, 
+    writeBatch, runTransaction, query, where, documentId, getCountFromServer
+} from 'firebase/firestore';
+import { 
+    createUserWithEmailAndPassword, 
+    signInWithEmailAndPassword, 
+    signOut 
+} from 'firebase/auth';
+
 import { mockProducts, mockCategories, mockNews } from '../constants';
 import { Product, Category, NewsArticle, Page, SiteSettings, HomepageBlock, User, Order, Vehicle, Notification, UserRole, CartItem, ImportLogEntry, OrderItemStatus } from '../types';
 
-// --- LocalStorage Persistence Layer ---
+// --- Helper to convert Firestore doc to our types ---
+const fromDoc = <T>(d: any): T => ({ ...d.data(), id: d.id } as T);
+const fromDocs = <T>(snapshot: any): T[] => snapshot.docs.map((d: any) => fromDoc<T>(d));
 
-// Helper to get an array from localStorage or initialize it
-const getData = <T>(key: string, initialData: T[]): T[] => {
-    try {
-        const storedData = localStorage.getItem(key);
-        if (storedData) {
-            return JSON.parse(storedData);
-        }
-    } catch (error) {
-        console.error(`Failed to parse ${key} from localStorage`, error);
-        localStorage.removeItem(key); // Clear corrupted data
-    }
-    // If nothing in storage or parsing fails, use initial data and save it
-    localStorage.setItem(key, JSON.stringify(initialData));
-    return initialData;
-};
-
-// Helper to get a single object from localStorage or initialize it
-const getObjectData = <T>(key: string, initialData: T): T => {
-    try {
-        const storedData = localStorage.getItem(key);
-        if (storedData) {
-            return JSON.parse(storedData);
-        }
-    } catch (error) {
-        console.error(`Failed to parse ${key} from localStorage`, error);
-        localStorage.removeItem(key);
-    }
-    localStorage.setItem(key, JSON.stringify(initialData));
-    return initialData;
-};
-
-// Helper to save data to localStorage
-const saveData = <T>(key: string, data: T) => {
-    try {
-        localStorage.setItem(key, JSON.stringify(data));
-    } catch (error) {
-        // This can happen if localStorage is full
-        console.error(`Failed to save ${key} to localStorage`, error);
-    }
-};
-
-const generateId = () => `id_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-
-// --- In-memory data store, initialized from localStorage ---
-
-let systemPages: Page[] = [
+const systemPages: Page[] = [
     { id: 'system_home', title: 'Главная страница', slug: 'home', content: [], showInHeader: false, showInFooter: false, isSystemPage: true },
     { id: 'system_catalog', title: 'Каталог', slug: 'catalog', content: [], showInHeader: false, showInFooter: false, isSystemPage: true },
     { id: 'system_profile', title: 'Личный кабинет', slug: 'profile', content: [], showInHeader: false, showInFooter: false, isSystemPage: true },
 ];
 
-let products: Product[] = getData<Product>('app_products', mockProducts);
-let categories: Category[] = getData<Category>('app_categories', mockCategories);
-let news: NewsArticle[] = getData<NewsArticle>('app_news', mockNews);
-let users: User[] = getData<User>('app_users', [
-    { id: '1', fullName: 'Иван Иванов', email: 'ivan@example.com', role: 'customer', phone: '+79991234567', telegramId: '@ivanov' },
-    { id: '2', fullName: 'Петр Петров', email: 'petr@example.com', role: 'manager', phone: '+79992345678' },
-    { id: '3', fullName: 'Сергей Сергеев', email: 'sergey@example.com', role: 'superadmin', phone: '+79993456789' },
-    { id: '4', fullName: 'Администратор', email: 'admin@example.com', role: 'superadmin', phone: '+79994567890' },
-    { id: '5', fullName: 'Елена Сидорова', email: 'elena@example.com', role: 'customer', phone: '+79995678901' },
-]);
-let orders: Order[] = getData<Order>('app_orders', [
-    // FIX: Changed order item status from 'delivered' to 'shipped' to match the 'OrderItemStatus' type definition.
-    { id: 'ord1', orderNumber: 1, userId: '1', items: [{...mockProducts[0], quantity: 1, status: 'shipped'}, {...mockProducts[2], quantity: 2, status: 'cancelled'}], total: 8100, status: 'delivered', createdAt: new Date('2023-10-20T14:48:00.000Z').toISOString(), customerName: 'Иван Иванов' },
-    { id: 'ord2', orderNumber: 2, userId: '1', items: [{...mockProducts[4], quantity: 1, status: 'shipped'}], total: 990, status: 'processing', createdAt: new Date('2023-10-25T10:30:00.000Z').toISOString(), customerName: 'Иван Иванов' },
-    { id: 'ord3', orderNumber: 3, userId: '1', items: [{...mockProducts[1], quantity: 1, status: 'available'}], total: 850.50, status: 'pending', createdAt: new Date('2023-10-25T11:00:00.000Z').toISOString(), customerName: 'Иван Иванов' },
-    { id: 'ord4', orderNumber: 4, userId: '5', items: [{...mockProducts[3], quantity: 1, status: 'shipped'}, {...mockProducts[5], quantity: 1, status: 'shipped'}], total: 4050.99, status: 'shipped', createdAt: new Date('2023-10-26T09:00:00.000Z').toISOString(), customerName: 'Елена Сидорова' },
-]);
-let vehicles: Vehicle[] = getData<Vehicle>('app_vehicles', [
-    { id: 'v1', userId: '1', make: 'Toyota', model: 'Camry', year: 2021, vin: 'JT1234567890' }
-]);
-let notifications: Notification[] = getData<Notification>('app_notifications', []);
-let importHistory: ImportLogEntry[] = getData<ImportLogEntry>('app_import_history', []);
-let pages: Page[] = getData<Page>('app_pages', [
-    { id: 1, title: 'О нас', slug: 'about', content: [{id: generateId(), type: 'text', content: 'Мы - лучший магазин автозапчастей!'}], showInHeader: true, showInFooter: true },
-    { id: 2, title: 'Доставка', slug: 'delivery', content: [{id: generateId(), type: 'text', content: 'Информация о доставке...'}], showInHeader: true, showInFooter: true },
-    { id: 3, title: 'тест', slug: 'test', content: [
-        {
-            id: generateId(),
-            type: 'columns',
-            columnCount: 2,
-            columns: [
-                {
-                    id: generateId(),
-                    blocks: [
-                        {
-                            id: generateId(),
-                            type: 'image',
-                            src: 'https://images.unsplash.com/photo-1517423568366-8b83523034fd?q=80&w=800&auto=format&fit=crop',
-                            alt: 'Собака в очках'
-                        }
-                    ]
-                },
-                {
-                    id: generateId(),
-                    blocks: [
-                        {
-                            id: generateId(),
-                            type: 'text',
-                            content: 'Это текст в правой колонке.\n\nВы можете разместить здесь описание, характеристики или любой другой контент.'
-                        },
-                        {
-                            id: generateId(),
-                            type: 'button',
-                            text: 'Узнать больше',
-                            link: '#',
-                            variant: 'outlined'
-                        }
-                    ]
-                }
-            ]
-        },
-        {
-            id: generateId(),
-            type: 'carousel',
-            images: [
-                { id: generateId(), src: 'https://images.unsplash.com/photo-1598128558393-70ff21433be0?q=80&w=800&auto=format&fit=crop', alt: 'Автомобиль 1' },
-                { id: generateId(), src: 'https://images.unsplash.com/photo-1552519507-da3b142c6e3d?q=80&w=800&auto=format&fit=crop', alt: 'Автомобиль 2' },
-                { id: generateId(), src: 'https://images.unsplash.com/photo-1583121274602-3e2820c69888?q=80&w=800&auto=format&fit=crop', alt: 'Автомобиль 3' },
-            ]
-        }
-    ], showInHeader: true, showInFooter: false },
-]);
-let siteSettings: SiteSettings = getObjectData<SiteSettings>('app_siteSettings', {
-    siteName: 'АвтоЗапчасти+',
-    logoUrl: '',
-    seoTitle: 'АвтоЗапчасти+ | Лучшие запчасти для вашего авто',
-    seoDescription: 'Интернет-магазин качественных автозапчастей.',
-    seoKeywords: 'автозапчасти, купить запчасти, магазин запчастей',
-    contactPhone: '+7 (800) 555-35-35',
-    contactEmail: 'info@autozapchasti.com',
-    contactAddress: 'г. Москва, ул. Пушкина, д. Колотушкина',
-    promoBanners: [
-        {
-            id: generateId(),
-            imageUrl: 'https://images.unsplash.com/photo-1617083222379-a1741065790b?q=80&w=1920&auto=format&fit=crop',
-            linkUrl: '#',
-            enabled: true,
-        },
-        {
-            id: generateId(),
-            imageUrl: 'https://images.unsplash.com/photo-1617096200347-cb04ae465063?q=80&w=1920&auto=format&fit=crop',
-            linkUrl: '#',
-            enabled: true,
-        }
-    ],
-    promoBannerSpeed: 5,
-    promoBannerHeight: 320, // Corresponds to `h-80` in Tailwind (80 * 4 = 320px)
-});
-let homepageBlocks: HomepageBlock[] = getObjectData<HomepageBlock[]>('app_homepageBlocks', [
-    { id: 'promo_banner', title: 'Рекламный баннер', enabled: true },
-    { id: 'search', title: 'Поиск по сайту', enabled: true },
-    { id: 'categories', title: 'Категории', enabled: true },
-    { id: 'featured', title: 'Популярные товары', enabled: true },
-    { id: 'news', title: 'Новости', enabled: true },
-]);
-
-const simulateDelay = (ms = 200) => new Promise(res => setTimeout(res, ms));
-
-
 export const api = {
     // --- Auth ---
-    login: async (email: string, password: string): Promise<User> => {
-        await simulateDelay();
-        const user = users.find(u => u.email === email);
-        if (!user) throw new Error('Пользователь не найден');
-        return user;
+    login: async (email: string, password: string): Promise<void> => {
+        try {
+            await signInWithEmailAndPassword(auth, email, password);
+        } catch (error: any) {
+            throw new Error('Неверный email или пароль.');
+        }
     },
-    register: async (fullName: string, email: string, password: string): Promise<User> => {
-        await simulateDelay();
-        if (users.some(u => u.email === email)) throw new Error('Пользователь с таким email уже существует');
-        const newUser: User = { id: generateId(), fullName, email, role: 'customer' };
-        users.push(newUser);
-        saveData('app_users', users);
-
-        // Add notification for admins
-        const adminNotification: Notification = {
-            id: Date.now(),
-            title: 'Новый пользователь',
-            message: `Зарегистрировался новый пользователь: ${fullName} (${email}).`,
-            read: false,
-            date: new Date().toISOString(),
-        };
-        notifications = [adminNotification, ...notifications];
-        saveData('app_notifications', notifications);
-
-        return newUser;
+    register: async (fullName: string, email: string, password: string): Promise<void> => {
+        try {
+            const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+            const { uid } = userCredential.user;
+            const newUser: Omit<User, 'id'> = { fullName, email, role: 'customer' };
+            await setDoc(doc(db, "users", uid), newUser);
+        } catch (error: any) {
+            if (error.code === 'auth/email-already-in-use') {
+                throw new Error('Пользователь с таким email уже существует.');
+            }
+            throw new Error('Ошибка регистрации.');
+        }
+    },
+    logout: async (): Promise<void> => {
+        await signOut(auth);
+    },
+    getUserProfile: async (userId: string): Promise<User | null> => {
+        const userDoc = await getDoc(doc(db, "users", userId));
+        return userDoc.exists() ? fromDoc<User>(userDoc) : null;
     },
     updateUserProfile: async (userId: string, data: Partial<Omit<User, 'id' | 'email' | 'role'>>): Promise<User> => {
-        await simulateDelay();
-        let user = users.find(u => u.id === userId);
-        if (!user) throw new Error('User not found');
-        user = { ...user, ...data };
-        users = users.map(u => u.id === userId ? user : u);
-        saveData('app_users', users);
-        return user;
+        const userRef = doc(db, "users", userId);
+        await updateDoc(userRef, data);
+        const updatedDoc = await getDoc(userRef);
+        return fromDoc<User>(updatedDoc);
     },
+
     // --- Data getters ---
-    getProducts: async (): Promise<Product[]> => { await simulateDelay(); return products; },
-    getCategories: async (): Promise<Category[]> => { await simulateDelay(); return categories; },
-    getNews: async (): Promise<NewsArticle[]> => { await simulateDelay(); return news; },
-    getPages: async (): Promise<Page[]> => { 
-        await simulateDelay(); 
-        return [...systemPages, ...pages]; 
+    getProducts: async (): Promise<Product[]> => fromDocs(await getDocs(collection(db, "products"))),
+    getCategories: async (): Promise<Category[]> => fromDocs(await getDocs(collection(db, "categories"))),
+    getNews: async (): Promise<NewsArticle[]> => fromDocs(await getDocs(collection(db, "news"))),
+    getPages: async (): Promise<Page[]> => {
+        const customPages = fromDocs<Page>(await getDocs(collection(db, "pages")));
+        return [...systemPages, ...customPages];
     },
-    getSiteSettings: async (): Promise<SiteSettings> => { await simulateDelay(); return siteSettings; },
-    getHomepageBlocks: async (): Promise<HomepageBlock[]> => { await simulateDelay(); return homepageBlocks; },
-    getUsers: async (): Promise<User[]> => { await simulateDelay(); return users; },
-    getOrders: async (): Promise<Order[]> => { await simulateDelay(); return orders; },
-    getVehicles: async (): Promise<Vehicle[]> => { await simulateDelay(); return vehicles; },
-    getNotifications: async (): Promise<Notification[]> => { await simulateDelay(); return notifications; },
-    getImportHistory: async (): Promise<ImportLogEntry[]> => { await simulateDelay(); return importHistory; },
+    getSiteSettings: async (): Promise<SiteSettings | null> => {
+        const settingsDoc = await getDoc(doc(db, "settings", "site"));
+        if (settingsDoc.exists()) {
+            return settingsDoc.data() as SiteSettings;
+        }
+        return null;
+    },
+    getHomepageBlocks: async (): Promise<HomepageBlock[]> => {
+        const blocksDoc = await getDoc(doc(db, "settings", "homepage"));
+        if (blocksDoc.exists()) {
+            return blocksDoc.data().blocks as HomepageBlock[];
+        }
+        return [
+            { id: 'promo_banner', title: 'Рекламный баннер', enabled: true },
+            { id: 'search', title: 'Поиск по сайту', enabled: true },
+            { id: 'categories', title: 'Категории', enabled: true },
+            { id: 'featured', title: 'Популярные товары', enabled: true },
+            { id: 'news', title: 'Новости', enabled: true },
+        ];
+    },
+    getUsers: async (): Promise<User[]> => fromDocs(await getDocs(collection(db, "users"))),
+    getOrders: async (): Promise<Order[]> => fromDocs(await getDocs(collection(db, "orders"))),
+    getVehicles: async (): Promise<Vehicle[]> => fromDocs(await getDocs(collection(db, "vehicles"))),
+    getNotifications: async (): Promise<Notification[]> => fromDocs(await getDocs(collection(db, "notifications"))),
+    getImportHistory: async (): Promise<ImportLogEntry[]> => fromDocs(await getDocs(collection(db, "importHistory"))),
     
     // --- User Actions ---
     placeOrder: async (userId: string, orderData: { items: CartItem[], total: number }): Promise<Order> => {
-        await simulateDelay(400); // Simulate network latency for a critical operation
-        const user = users.find(u => u.id === userId);
-        if (!user) throw new Error("User not found");
+       return await runTransaction(db, async (transaction) => {
+            // --- 1. ALL READS ---
+            const userRef = doc(db, "users", userId);
+            const ordersCounterRef = doc(db, "counters", "orders");
+            const productRefs = orderData.items.map(item => doc(db, "products", item.id));
 
-        // --- Stock Deduction Logic ---
-        // 1. Validate stock for all items first to prevent partial deductions
-        for (const item of orderData.items) {
-            const product = products.find(p => p.id === item.id);
-            if (!product) {
-                throw new Error(`Товар "${item.name}" не найден на складе.`);
-            }
-            if (!product.inStock || (product.stockQuantity ?? 0) < item.quantity) {
-                throw new Error(`Недостаточно товара "${item.name}" на складе. Доступно: ${product.stockQuantity ?? 0}, запрошено: ${item.quantity}.`);
-            }
-        }
+            const docsToRead = [
+                transaction.get(userRef),
+                transaction.get(ordersCounterRef),
+                ...productRefs.map(ref => transaction.get(ref))
+            ];
+            
+            const [userDoc, counterDoc, ...productDocs] = await Promise.all(docsToRead);
 
-        // 2. If validation passes, deduct stock
-        const updatedProducts = products.map(p => {
-            const orderItem = orderData.items.find(item => item.id === p.id);
-            if (orderItem) {
-                const newQuantity = (p.stockQuantity ?? 0) - orderItem.quantity;
-                return {
-                    ...p,
-                    stockQuantity: newQuantity,
-                    inStock: newQuantity > 0,
-                };
+            // --- 2. VALIDATION ---
+            if (!userDoc.exists()) {
+                throw new Error("Пользователь не найден.");
             }
-            return p;
+
+            const validationErrors: string[] = [];
+            const updatedStockData: { ref: any, newQuantity: number }[] = [];
+
+            for (let i = 0; i < orderData.items.length; i++) {
+                const item = orderData.items[i];
+                const productDoc = productDocs[i];
+                
+                if (!productDoc.exists()) {
+                    validationErrors.push(`Товар "${item.name}" не найден.`);
+                    continue; // continue to find all missing products
+                }
+
+                const productData = productDoc.data() as Product;
+                const currentQuantity = productData.stockQuantity ?? 0;
+                
+                if (!productData.inStock || currentQuantity < item.quantity) {
+                    validationErrors.push(`Недостаточно товара "${item.name}" на складе. В наличии: ${currentQuantity}, требуется: ${item.quantity}.`);
+                }
+
+                updatedStockData.push({
+                    ref: productRefs[i],
+                    newQuantity: currentQuantity - item.quantity,
+                });
+            }
+
+            if (validationErrors.length > 0) {
+                // Combine all errors into one message
+                throw new Error(validationErrors.join('\n'));
+            }
+
+            // --- 3. ALL WRITES ---
+            
+            // Update product stocks
+            for (const stockUpdate of updatedStockData) {
+                transaction.update(stockUpdate.ref, {
+                    stockQuantity: stockUpdate.newQuantity,
+                    inStock: stockUpdate.newQuantity > 0,
+                });
+            }
+            
+            // Update order counter
+            const newOrderNumber = (counterDoc.data()?.count || 0) + 1;
+            transaction.set(ordersCounterRef, { count: newOrderNumber }, { merge: true });
+
+            // Create new order
+            const newOrderRef = doc(collection(db, "orders"));
+            const newOrder: Omit<Order, 'id'> = {
+                orderNumber: newOrderNumber,
+                userId,
+                items: orderData.items,
+                total: orderData.total,
+                status: 'pending',
+                createdAt: new Date().toISOString(),
+                customerName: userDoc.data().fullName,
+            };
+            transaction.set(newOrderRef, newOrder);
+            
+            // Return the created order object
+            return { ...newOrder, id: newOrderRef.id };
         });
-        
-        // 3. Update the main products array and save
-        products = updatedProducts;
-        saveData('app_products', products);
-        // --- End of Stock Deduction Logic ---
-
-        const newOrder: Order = {
-            id: `ord${Date.now()}`,
-            orderNumber: orders.length > 0 ? Math.max(...orders.map(o => o.orderNumber)) + 1 : 1,
-            userId,
-            items: orderData.items.map(item => ({
-                ...item,
-                status: 'available' // Since we've checked stock, it's available
-            })),
-            total: orderData.total,
-            status: 'pending',
-            createdAt: new Date().toISOString(),
-            customerName: user.fullName,
-        };
-        orders = [newOrder, ...orders];
-        saveData('app_orders', orders);
-
-        // Add notification for admins
-        const adminNotification: Notification = {
-            id: Date.now(),
-            title: `Новый заказ #${newOrder.orderNumber}`,
-            message: `Клиент ${user.fullName} оформил заказ на сумму ${newOrder.total.toFixed(2)} ₽.`,
-            read: false,
-            date: new Date().toISOString(),
-        };
-        notifications = [adminNotification, ...notifications];
-        saveData('app_notifications', notifications);
-
-        return newOrder;
     },
+
     addVehicle: async (userId: string, vehicleData: Omit<Vehicle, 'id' | 'userId'>): Promise<Vehicle> => {
-        await simulateDelay();
-        const newVehicle: Vehicle = { id: generateId(), userId, ...vehicleData };
-        vehicles.push(newVehicle);
-        saveData('app_vehicles', vehicles);
-        return newVehicle;
+        const docRef = await addDoc(collection(db, "vehicles"), { userId, ...vehicleData });
+        return { id: docRef.id, userId, ...vehicleData };
     },
-    deleteVehicle: async (vehicleId: string): Promise<void> => {
-        await simulateDelay();
-        vehicles = vehicles.filter(v => v.id !== vehicleId);
-        saveData('app_vehicles', vehicles);
+    deleteVehicle: (vehicleId: string): Promise<void> => deleteDoc(doc(db, "vehicles", vehicleId)),
+    markNotificationAsRead: (id: number): Promise<void> => updateDoc(doc(db, "notifications", String(id)), { read: true }),
+    markAllNotificationsAsRead: async (): Promise<void> => {
+        const q = query(collection(db, "notifications"), where("read", "==", false));
+        const snapshot = await getDocs(q);
+        const batch = writeBatch(db);
+        snapshot.docs.forEach(d => batch.update(d.ref, { read: true }));
+        await batch.commit();
     },
 
-    markNotificationAsRead: async (id: number): Promise<void> => {
-        await simulateDelay(50);
-        notifications = notifications.map(n => n.id === id ? { ...n, read: true } : n);
-        saveData('app_notifications', notifications);
-    },
-    
-    markAllNotificationsAsRead: async (): Promise<void> => {
-        await simulateDelay(100);
-        notifications = notifications.map(n => ({ ...n, read: true }));
-        saveData('app_notifications', notifications);
-    },
-    
-    // --- Admin Actions ---
-    createCustomerByManager: async (data: Omit<User, 'id' | 'role'>): Promise<User> => {
-        await simulateDelay();
-        if (users.some(u => u.email === data.email)) {
-            throw new Error('Пользователь с таким email уже существует');
+    // Admin Actions
+    seedDatabase: async (): Promise<void> => {
+        const productsColl = collection(db, "products");
+        const productsSnapshot = await getCountFromServer(productsColl);
+        if (productsSnapshot.data().count > 0) {
+            throw new Error("База данных уже содержит товары. Посев отменен.");
         }
-        const newCustomer: User = {
-            id: generateId(),
-            fullName: data.fullName,
-            email: data.email,
-            phone: data.phone,
-            role: 'customer',
+
+        const demoUsers = [
+            { email: 'admin@example.com', password: 'password', fullName: 'Администратор', role: 'superadmin' as UserRole },
+            { email: 'ivan@example.com', password: 'password', fullName: 'Иван Иванов', role: 'customer' as UserRole }
+        ];
+
+        if (auth.currentUser) {
+            await signOut(auth);
+        }
+
+        for (const demoUser of demoUsers) {
+            let uid: string;
+            try {
+                const userCredential = await createUserWithEmailAndPassword(auth, demoUser.email, demoUser.password);
+                uid = userCredential.user.uid;
+            } catch (error: any) {
+                if (error.code === 'auth/email-already-in-use') {
+                    console.warn(`User ${demoUser.email} already exists. Attempting to sign in to update profile.`);
+                    try {
+                        const userCredential = await signInWithEmailAndPassword(auth, demoUser.email, demoUser.password);
+                        uid = userCredential.user.uid;
+                    } catch (loginError: any) {
+                        console.error(`Could not sign in as ${demoUser.email}. Their password might have changed.`, loginError);
+                        throw new Error(`Демо-пользователь ${demoUser.email} уже существует, но с другим паролем. Удалите этого пользователя в Firebase Authentication и попробуйте снова.`);
+                    }
+                } else if (error.code === 'auth/configuration-not-found') {
+                    throw new Error('Firebase Authentication не включен. В вашей Firebase Console перейдите в раздел Authentication, нажмите "Начать" (Get Started) и включите провайдер "Email/пароль" (Email/Password), после чего попробуйте снова.');
+                } else {
+                    console.error(`Failed to create demo user ${demoUser.email}:`, error);
+                    throw new Error(`Не удалось создать демо-пользователя ${demoUser.email}: ${error.message}`);
+                }
+            }
+
+            if (uid) {
+                const userProfile: Omit<User, 'id'> = {
+                    fullName: demoUser.fullName,
+                    email: demoUser.email,
+                    role: demoUser.role,
+                };
+                await setDoc(doc(db, "users", uid), userProfile);
+            }
+
+            if (auth.currentUser) {
+                await signOut(auth);
+            }
+        }
+
+        const batch = writeBatch(db);
+        mockProducts.forEach(product => {
+            const docRef = doc(collection(db, "products"));
+            batch.set(docRef, product);
+        });
+        mockCategories.forEach(category => {
+            const docRef = doc(db, "categories", category.id);
+            batch.set(docRef, category);
+        });
+        mockNews.forEach(article => {
+            const docRef = doc(collection(db, "news"));
+            batch.set(docRef, article);
+        });
+
+        const defaultSiteSettings = {
+            siteName: 'Zap-z.ru', logoUrl: '', seoTitle: 'Zap-z.ru: Auto Parts Store', seoDescription: 'Интернет-магазин автозапчастей', seoKeywords: 'автозапчасти',
+            contactPhone: '+7 (800) 555-35-35', contactEmail: 'support@zap-z.ru', contactAddress: 'г. Москва, ул. Пушкина, д. 1', promoBanners: [], promoBannerSpeed: 5, promoBannerHeight: 320
         };
-        users.unshift(newCustomer);
-        saveData('app_users', users);
-        return newCustomer;
+        batch.set(doc(db, "settings", "site"), defaultSiteSettings);
+
+        const defaultHomepageBlocks = [
+            { id: 'promo_banner', title: 'Рекламный баннер', enabled: true },
+            { id: 'search', title: 'Поиск по сайту', enabled: true },
+            { id: 'categories', title: 'Категории', enabled: true },
+            { id: 'featured', title: 'Популярные товары', enabled: true },
+            { id: 'news', title: 'Новости', enabled: true },
+        ];
+        batch.set(doc(db, "settings", "homepage"), { blocks: defaultHomepageBlocks });
+        batch.set(doc(db, "counters", "orders"), { count: 100 });
+
+        await batch.commit();
+    },
+    createCustomerByManager: async (data: Omit<User, 'id' | 'role'>): Promise<User> => {
+        const q = query(collection(db, "users"), where("email", "==", data.email));
+        const existing = await getDocs(q);
+        if (!existing.empty) throw new Error("Пользователь с таким email уже существует");
+
+        const docRef = await addDoc(collection(db, "users"), { ...data, role: 'customer' });
+        return { ...data, role: 'customer', id: docRef.id };
     },
     createProduct: async (data: Omit<Product, 'id'>): Promise<Product> => {
-        await simulateDelay();
-        const newProduct: Product = { 
-            id: Date.now(), 
-            ...data,
-            inStock: (data.stockQuantity ?? 0) > 0,
-        };
-        products = [newProduct, ...products];
-        saveData('app_products', products);
-        return newProduct;
+        const docRef = await addDoc(collection(db, "products"), data);
+        return { ...data, id: docRef.id };
     },
-    updateProduct: async (id: number, data: Omit<Product, 'id'>): Promise<Product> => {
-        await simulateDelay();
-        const updatedProduct: Product = { 
-            id, 
-            ...data,
-            inStock: (data.stockQuantity ?? 0) > 0,
-        };
-        products = products.map(p => p.id === id ? updatedProduct : p);
-        saveData('app_products', products);
-        return updatedProduct;
+    updateProduct: async (id: string, data: Partial<Omit<Product, 'id'>>): Promise<Product> => {
+        await updateDoc(doc(db, "products", id), data);
+        const updatedDoc = await getDoc(doc(db, "products", id));
+        return fromDoc<Product>(updatedDoc);
     },
-    deleteProduct: async (id: number): Promise<void> => {
-        await simulateDelay();
-        products = products.filter(p => p.id !== id);
-        saveData('app_products', products);
-    },
+    deleteProduct: (id: string): Promise<void> => deleteDoc(doc(db, "products", id)),
     batchUpdateProducts: async (data: Omit<Product, 'id'>[]): Promise<void> => {
-        await simulateDelay(500); // longer delay for batch operation
-        data.forEach(productData => {
-            const processedData = {
-                ...productData,
-                inStock: (productData.stockQuantity ?? 0) > 0,
-            };
-
-            const existingProductIndex = products.findIndex(p => p.sku.toLowerCase() === processedData.sku.toLowerCase());
-            if (existingProductIndex > -1) {
-                // Update existing product
-                const existingProduct = products[existingProductIndex];
-                products[existingProductIndex] = { ...existingProduct, ...processedData, id: existingProduct.id };
+        const batch = writeBatch(db);
+        for (const productData of data) {
+            const q = query(collection(db, "products"), where("sku", "==", productData.sku));
+            const existing = await getDocs(q);
+            if (!existing.empty) {
+                const docRef = existing.docs[0].ref;
+                batch.update(docRef, productData);
             } else {
-                // Create new product
-                const newProduct: Product = { id: Date.now() + Math.random(), ...processedData };
-                products.unshift(newProduct);
+                const docRef = doc(collection(db, "products"));
+                batch.set(docRef, productData);
             }
-        });
-        saveData('app_products', products);
+        }
+        await batch.commit();
     },
     clearWarehouse: async (): Promise<void> => {
-        await simulateDelay(300);
-        products = [];
-        saveData('app_products', products);
+        const snapshot = await getDocs(collection(db, "products"));
+        const batch = writeBatch(db);
+        snapshot.docs.forEach(d => batch.delete(d.ref));
+        await batch.commit();
     },
-    addImportLog: async (logEntryData: Omit<ImportLogEntry, 'date'>): Promise<void> => {
-        await simulateDelay(50);
-        const newLogEntry: ImportLogEntry = {
-            date: new Date().toISOString(),
-            ...logEntryData
-        };
-        importHistory.push(newLogEntry);
-        saveData('app_import_history', importHistory);
+    addImportLog: async (logEntry: Omit<ImportLogEntry, 'date'>): Promise<void> => {
+        await addDoc(collection(db, "importHistory"), { ...logEntry, date: new Date().toISOString() });
     },
     createCategory: async (data: Omit<Category, 'id'>): Promise<Category> => {
-        await simulateDelay();
-        const newCategory: Category = { id: data.slug, ...data };
-        categories = [newCategory, ...categories];
-        saveData('app_categories', categories);
-        return newCategory;
+        const docRef = doc(db, "categories", data.slug);
+        await setDoc(docRef, data);
+        return { ...data, id: docRef.id };
     },
     updateCategory: async (id: string, data: Omit<Category, 'id'>): Promise<Category> => {
-        await simulateDelay();
-        const updatedCategory: Category = { id, ...data };
-        categories = categories.map(c => c.id === id ? updatedCategory : c);
-        saveData('app_categories', categories);
-        return updatedCategory;
+        await updateDoc(doc(db, "categories", id), data);
+        return { ...data, id };
     },
-    deleteCategory: async (id: string): Promise<void> => {
-        await simulateDelay();
-        categories = categories.filter(c => c.id !== id);
-        saveData('app_categories', categories);
-    },
+    deleteCategory: (id: string): Promise<void> => deleteDoc(doc(db, "categories", id)),
     createNews: async (data: Omit<NewsArticle, 'id' | 'createdAt'>): Promise<NewsArticle> => {
-        await simulateDelay();
-        const newArticle: NewsArticle = { id: Date.now(), createdAt: new Date().toISOString(), ...data };
-        news = [newArticle, ...news];
-        saveData('app_news', news);
-        return newArticle;
+        const docRef = await addDoc(collection(db, "news"), { ...data, createdAt: new Date().toISOString() });
+        return { ...data, id: docRef.id, createdAt: new Date().toISOString() };
     },
-    updateNews: async (id: number, data: Omit<NewsArticle, 'id' | 'createdAt'>): Promise<NewsArticle> => {
-        await simulateDelay();
-        const article = news.find(n => n.id === id);
-        if (!article) throw new Error("Article not found");
-        const updatedArticle: NewsArticle = { ...article, ...data };
-        news = news.map(n => n.id === id ? updatedArticle : n);
-        saveData('app_news', news);
-        return updatedArticle;
+    updateNews: async (id: string, data: Partial<Omit<NewsArticle, 'id'>>): Promise<NewsArticle> => {
+        await updateDoc(doc(db, "news", id), data);
+        const updatedDoc = await getDoc(doc(db, "news", id));
+        return fromDoc<NewsArticle>(updatedDoc);
     },
-    deleteNews: async (id: number): Promise<void> => {
-        await simulateDelay();
-        news = news.filter(n => n.id !== id);
-        saveData('app_news', news);
-    },
+    deleteNews: (id: string): Promise<void> => deleteDoc(doc(db, "news", id)),
     createPage: async (data: Omit<Page, 'id'>): Promise<Page> => {
-        await simulateDelay();
-        const newPage: Page = { id: Date.now(), ...data };
-        pages = [newPage, ...pages];
-        saveData('app_pages', pages);
-        return newPage;
+        const docRef = await addDoc(collection(db, "pages"), data);
+        return { ...data, id: docRef.id };
     },
-    updatePage: async (id: number | string, data: Omit<Page, 'id'>): Promise<Page> => {
-        await simulateDelay();
-        if (typeof id === 'string' && id.startsWith('system_')) {
-            const systemPageIndex = systemPages.findIndex(p => p.id === id);
-            if (systemPageIndex === -1) {
-                throw new Error("Системная страница не найдена.");
-            }
-            const originalSystemPage = systemPages[systemPageIndex];
-            const updatedSystemPage: Page = {
-                ...originalSystemPage,
-                showInHeader: data.showInHeader,
-                showInFooter: data.showInFooter,
-            };
-            systemPages[systemPageIndex] = updatedSystemPage;
-            return updatedSystemPage;
-        }
-        const updatedPage: Page = { id, ...data, isSystemPage: false };
-        pages = pages.map(p => p.id === id ? updatedPage : p);
-        saveData('app_pages', pages);
-        return updatedPage;
+    updatePage: async (id: string, data: Partial<Omit<Page, 'id'>>): Promise<Page> => {
+        await updateDoc(doc(db, "pages", id), data);
+        const updatedDoc = await getDoc(doc(db, "pages", id));
+        return fromDoc<Page>(updatedDoc);
     },
-    deletePage: async (id: number | string): Promise<void> => {
-        await simulateDelay();
-        if (typeof id === 'string' && id.startsWith('system_')) {
-            throw new Error("Системные страницы не могут быть удалены.");
-        }
-        pages = pages.filter(p => p.id !== id);
-        saveData('app_pages', pages);
-    },
+    deletePage: (id: string): Promise<void> => deleteDoc(doc(db, "pages", id)),
     updateUserRole: async (userId: string, role: UserRole): Promise<User> => {
-        await simulateDelay();
-        let user = users.find(u => u.id === userId);
-        if (!user) throw new Error('User not found');
-        user.role = role;
-        users = users.map(u => u.id === userId ? user : u);
-        saveData('app_users', users);
-        return user;
+        const userRef = doc(db, "users", userId);
+        await updateDoc(userRef, { role });
+        const updatedDoc = await getDoc(userRef);
+        return fromDoc<User>(updatedDoc);
     },
-    deleteUser: async (userId: string): Promise<void> => {
-        await simulateDelay();
-        users = users.filter(u => u.id !== userId);
-        saveData('app_users', users);
-    },
+    deleteUser: (userId: string): Promise<void> => deleteDoc(doc(db, "users", userId)),
     updateOrderStatus: async (orderId: string, status: Order['status']): Promise<Order> => {
-        await simulateDelay();
-        const order = orders.find(o => o.id === orderId);
-        if (!order) throw new Error('Order not found');
-        order.status = status;
-        orders = orders.map(o => o.id === orderId ? order : o);
-        saveData('app_orders', orders);
-        return order;
+        const orderRef = doc(db, "orders", orderId);
+        await updateDoc(orderRef, { status });
+        const updatedDoc = await getDoc(orderRef);
+        return fromDoc<Order>(updatedDoc);
     },
-    updateOrderItemStatus: async (orderId: string, productId: number, status: OrderItemStatus): Promise<Order> => {
-        await simulateDelay(100);
-        const orderIndex = orders.findIndex(o => o.id === orderId);
-        if (orderIndex === -1) throw new Error('Order not found');
-        
-        const order = { ...orders[orderIndex] };
-        const itemIndex = order.items.findIndex(i => i.id === productId);
-        if (itemIndex === -1) throw new Error('Item not found in order');
-
-        const updatedItems = [...order.items];
-        updatedItems[itemIndex] = { ...updatedItems[itemIndex], status };
-        
-        const updatedOrder = { ...order, items: updatedItems };
-
-        orders = orders.map(o => o.id === orderId ? updatedOrder : o);
-        saveData('app_orders', orders);
-        return updatedOrder;
+    updateOrderItemStatus: async (orderId: string, productId: string, status: OrderItemStatus): Promise<Order> => {
+        const orderRef = doc(db, "orders", orderId);
+        const orderDoc = await getDoc(orderRef);
+        if (!orderDoc.exists()) throw new Error("Order not found");
+        const orderData = orderDoc.data() as Order;
+        const updatedItems = orderData.items.map(item => item.id === productId ? { ...item, status } : item);
+        await updateDoc(orderRef, { items: updatedItems });
+        return { ...orderData, id: orderId, items: updatedItems };
     },
     updateSiteSettings: async (data: SiteSettings): Promise<SiteSettings> => {
-        await simulateDelay();
-        siteSettings = data;
-        saveData('app_siteSettings', siteSettings);
-        return siteSettings;
+        await setDoc(doc(db, "settings", "site"), data);
+        return data;
     },
     updateHomepageBlocks: async (blocks: HomepageBlock[]): Promise<HomepageBlock[]> => {
-        await simulateDelay();
-        homepageBlocks = blocks;
-        saveData('app_homepageBlocks', homepageBlocks);
-        return homepageBlocks;
+        await setDoc(doc(db, "settings", "homepage"), { blocks });
+        return blocks;
     },
     notifyUser: async (payload: { type: string; userId: string; data: any }): Promise<void> => {
-        try {
-            // This URL will likely fail locally unless the bot server is running and CORS is configured.
-            // This is for demonstration; a real implementation would use environment variables for the URL.
-            const botApiUrl = 'http://localhost:3001/api/notify';
-            await fetch(botApiUrl, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload),
-            });
-        } catch (error) {
-            console.error('Failed to send notification to bot:', error);
-            // We don't throw an error to the user, just log it.
-        }
+        // This remains a mock/stub as it points to an external service.
+        console.log("Attempting to send notification:", payload);
     },
 };

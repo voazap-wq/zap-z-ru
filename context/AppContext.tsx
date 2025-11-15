@@ -29,7 +29,7 @@ const defaultState: AppContextType = {
   notifications: [],
   markNotificationAsRead: async () => {},
   markAllNotificationsAsRead: async () => {},
-  siteSettings: { siteName: '', logoUrl: '', seoTitle: '', seoDescription: '', seoKeywords: '', contactPhone: '', contactEmail: '', contactAddress: '', promoBanners: [], promoBannerSpeed: 5, promoBannerHeight: 320 },
+  siteSettings: null,
   homepageBlocks: [],
   importHistory: [],
   
@@ -38,6 +38,8 @@ const defaultState: AppContextType = {
   deleteVehicle: async () => {},
   placeOrder: async () => {},
   
+  seedDatabase: async () => {},
+  selfPromoteAdmin: async () => {},
   createCustomerByManager: async () => { throw new Error('AppContext not provided'); },
   updateUserRole: async () => {},
   deleteUser: async () => {},

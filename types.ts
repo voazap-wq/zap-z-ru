@@ -20,7 +20,7 @@ export interface Category {
 }
 
 export interface Product {
-  id: number;
+  id: string;
   name: string;
   categoryId: string; // From constants.ts
   price: number; // Selling price
@@ -46,7 +46,7 @@ export interface CartItem extends Product {
 }
 
 export interface OrderItem {
-  productId: number;
+  productId: string;
   quantity: number;
   price: number;
   status: OrderItemStatus;
@@ -65,7 +65,7 @@ export interface Order {
 }
 
 export interface NewsArticle {
-  id: number;
+  id: string;
   title: string;
   excerpt: string;
   content: string;
@@ -99,7 +99,7 @@ export interface ProductGridBlock {
   id: string;
   type: 'products';
   title: string;
-  productIds: number[];
+  productIds: string[];
 }
 
 export interface ImageCarouselBlock {
@@ -127,7 +127,7 @@ export type PageBlock = TextBlock | ImageBlock | ButtonBlock | ProductGridBlock 
 
 
 export interface Page {
-    id: number | string;
+    id: string;
     title: string;
     slug: string;
     content: PageBlock[];
@@ -209,8 +209,8 @@ export interface AppContextType {
 
   cart: CartItem[];
   addToCart: (product: Product) => void;
-  removeFromCart: (productId: number) => void;
-  updateCartQuantity: (productId: number, quantity: number) => void;
+  removeFromCart: (productId: string) => void;
+  updateCartQuantity: (productId: string, quantity: number) => void;
   clearCart: () => void;
   placeOrder: (customerId?: string) => Promise<void>;
 
@@ -224,20 +224,22 @@ export interface AppContextType {
   notifications: Notification[];
   markNotificationAsRead: (id: number) => Promise<void>;
   markAllNotificationsAsRead: () => Promise<void>;
-  siteSettings: SiteSettings;
+  siteSettings: SiteSettings | null;
   homepageBlocks: HomepageBlock[];
   
   addVehicle: (vehicleData: Omit<Vehicle, 'id' | 'userId'>) => Promise<void>;
   deleteVehicle: (vehicleId: string) => Promise<void>;
 
   // Admin functions
+  seedDatabase: () => Promise<void>;
+  selfPromoteAdmin: () => Promise<void>;
   createCustomerByManager: (data: Omit<User, 'id' | 'role'>) => Promise<User>;
   updateUserRole: (userId: string, role: UserRole) => Promise<void>;
   deleteUser: (userId: string) => Promise<void>;
 
   createProduct: (data: Omit<Product, 'id'>) => Promise<Product>;
-  updateProduct: (id: number, data: Omit<Product, 'id'>) => Promise<Product>;
-  deleteProduct: (id: number) => Promise<void>;
+  updateProduct: (id: string, data: Partial<Omit<Product, 'id'>>) => Promise<Product>;
+  deleteProduct: (id: string) => Promise<void>;
   batchUpdateProducts: (products: Omit<Product, 'id'>[]) => Promise<void>;
   clearWarehouse: () => Promise<void>;
   importHistory: ImportLogEntry[];
@@ -248,15 +250,15 @@ export interface AppContextType {
   deleteCategory: (id: string) => Promise<void>;
 
   createNews: (data: Omit<NewsArticle, 'id' | 'createdAt'>) => Promise<NewsArticle>;
-  updateNews: (id: number, data: Omit<NewsArticle, 'id' | 'createdAt'>) => Promise<NewsArticle>;
-  deleteNews: (id: number) => Promise<void>;
+  updateNews: (id: string, data: Omit<NewsArticle, 'id' | 'createdAt'>) => Promise<NewsArticle>;
+  deleteNews: (id: string) => Promise<void>;
 
   createPage: (data: Omit<Page, 'id'>) => Promise<Page>;
-  updatePage: (id: number | string, data: Omit<Page, 'id'>) => Promise<Page>;
-  deletePage: (id: number | string) => Promise<void>;
+  updatePage: (id: string, data: Omit<Page, 'id'>) => Promise<Page>;
+  deletePage: (id: string) => Promise<void>;
 
   updateOrderStatus: (orderId: string, status: Order['status']) => Promise<Order>;
-  updateOrderItemStatus: (orderId: string, productId: number, status: OrderItemStatus) => Promise<Order>;
+  updateOrderItemStatus: (orderId: string, productId: string, status: OrderItemStatus) => Promise<Order>;
   updateSiteSettings: (data: SiteSettings) => Promise<SiteSettings>;
   updateHomepageBlocks: (blocks: HomepageBlock[]) => Promise<HomepageBlock[]>;
 }

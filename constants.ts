@@ -1,9 +1,8 @@
 
 import { Product, Category, NewsArticle } from './types';
 
-export const mockProducts: Product[] = [
+export const mockProducts: Omit<Product, 'id'>[] = [
   {
-    id: 1,
     name: 'Тормозные колодки',
     categoryId: 'brakes',
     price: 4500.00,
@@ -21,7 +20,6 @@ export const mockProducts: Product[] = [
     compatibleVins: ['JT1234567890'],
   },
   {
-    id: 2,
     name: 'Масляный фильтр',
     categoryId: 'filters',
     price: 850.50,
@@ -39,7 +37,6 @@ export const mockProducts: Product[] = [
     compatibleVins: ['JT1234567890'],
   },
   {
-    id: 3,
     name: 'Свечи зажигания (4 шт.)',
     categoryId: 'engine',
     price: 1800.00,
@@ -56,7 +53,6 @@ export const mockProducts: Product[] = [
     arrivalDate: new Date('2023-09-20T00:00:00Z').toISOString(),
   },
   {
-    id: 4,
     name: 'Воздушный фильтр',
     categoryId: 'filters',
     price: 1550.00,
@@ -73,7 +69,6 @@ export const mockProducts: Product[] = [
     arrivalDate: new Date('2023-11-01T00:00:00Z').toISOString(),
   },
   {
-    id: 5,
     name: 'Лампа для фары H7',
     categoryId: 'electro',
     price: 990.00,
@@ -90,12 +85,11 @@ export const mockProducts: Product[] = [
     arrivalDate: new Date('2023-10-25T00:00:00Z').toISOString(),
   },
   {
-    id: 6,
     name: 'Щетки стеклоочистителя (комплект)',
     categoryId: 'electro',
     price: 2500.99,
     purchasePrice: 1600.00,
-    imageUrl: 'https://images.unsplash.com/photo-1574226516631-412702a24344?q=80&w=400&auto=format&fit=crop',
+    imageUrl: 'https://images.unsplash.com/photo-1574226516631-41270a24344?q=80&w=400&auto=format&fit=crop',
     description: 'Всесезонные бескаркасные щетки для чистого лобового стекла без разводов.',
     sku: 'WW-BEAM-006',
     brand: 'Bosch',
@@ -107,7 +101,6 @@ export const mockProducts: Product[] = [
     arrivalDate: new Date('2023-10-05T00:00:00Z').toISOString(),
   },
   {
-    id: 7,
     name: 'Автомобильный аккумулятор',
     categoryId: 'electro',
     price: 9500.00,
@@ -124,7 +117,6 @@ export const mockProducts: Product[] = [
     arrivalDate: new Date('2023-11-10T00:00:00Z').toISOString(),
   },
   {
-    id: 8,
     name: 'Генератор',
     categoryId: 'electro',
     price: 15500.00,
@@ -151,9 +143,8 @@ export const mockCategories: Category[] = [
   { id: 'electro', name: 'Электрика', slug: 'electro', imageUrl: 'https://img.icons8.com/plasticine/100/battery.png' },
 ];
 
-export const mockNews: NewsArticle[] = [
+export const mockNews: Omit<NewsArticle, 'id'>[] = [
     {
-        id: 1,
         title: 'Новое поступление: тормозные диски Brembo',
         excerpt: 'Рады сообщить, что наш ассортимент пополнился высококачественными тормозными дисками от мирового лидера Brembo.',
         content: 'Полный текст новости о поступлении тормозных дисков Brembo. Узнайте больше о преимуществах и доступных моделях.',
@@ -161,7 +152,6 @@ export const mockNews: NewsArticle[] = [
         imageUrl: 'https://images.unsplash.com/photo-1617834215357-b08110b96b4b?q=80&w=400&auto=format&fit=crop',
     },
     {
-        id: 2,
         title: 'Как выбрать моторное масло для зимы?',
         excerpt: 'Наши эксперты подготовили подробное руководство по выбору масла, которое обеспечит легкий запуск двигателя в морозы.',
         content: 'Полное руководство по выбору зимнего моторного масла. Рассматриваем вязкость, допуски производителей и популярные бренды.',
@@ -169,7 +159,6 @@ export const mockNews: NewsArticle[] = [
         imageUrl: 'https://images.unsplash.com/photo-1601884481125-72782b1446a9?q=80&w=400&auto=format&fit=crop',
     },
     {
-        id: 3,
         title: 'Акция: -20% на все фильтры MANN-FILTER',
         excerpt: 'Только до конца месяца! Успейте купить воздушные, масляные и салонные фильтры MANN-FILTER со скидкой 20%.',
         content: 'Не пропустите выгодное предложение! Скидка 20% на весь ассортимент фильтров MANN-FILTER до 31 октября. Подробности акции внутри.',

@@ -45,10 +45,11 @@ const PageDialog: React.FC<PageDialogProps> = ({ isOpen, onClose, page }) => {
         ...data,
         content: data.content.map(block => {
             if(block.type === 'products') {
-                const rawIds = block.productIds;
+                // FIX: Cast `productIds` to `unknown` to correctly handle both string (from form input) and array types, and ensure the output is a string array.
+                const rawIds: unknown = block.productIds;
                 const productIdsAsArray = typeof rawIds === 'string'
-                    ? rawIds.split(',').map(id => parseInt(id.trim(), 10)).filter(id => !isNaN(id))
-                    : (Array.isArray(rawIds) ? rawIds.map(Number).filter(id => !isNaN(id)) : []);
+                    ? rawIds.split(',').map(id => id.trim()).filter(Boolean)
+                    : (Array.isArray(rawIds) ? rawIds.map(id => String(id).trim()).filter(Boolean) : []);
                 
                 return {
                     ...block,

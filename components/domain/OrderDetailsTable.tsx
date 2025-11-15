@@ -18,7 +18,7 @@ const orderItemStatusMap: Record<OrderItemStatus, { text: string; color: string;
 const OrderDetailsTable: React.FC<OrderDetailsTableProps> = ({ items, isAdmin, orderId }) => {
   const { updateOrderItemStatus } = useAppContext();
 
-  const handleStatusChange = (productId: number, status: OrderItemStatus) => {
+  const handleStatusChange = (productId: string, status: OrderItemStatus) => {
     if (isAdmin && orderId) {
       updateOrderItemStatus(orderId, productId, status);
     }

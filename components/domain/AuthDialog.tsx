@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useForm, SubmitHandler } from 'react-hook-form';
 import Dialog from '../ui/Dialog';
@@ -91,7 +90,7 @@ const AuthDialog: React.FC<AuthDialogProps> = ({ isOpen, onClose }) => {
               : undefined,
           })}
           error={errors.password as any}
-          helperText={activeTab === 'login' ? 'Для тестовых аккаунтов пароль может быть любым.' : undefined}
+          helperText={activeTab === 'login' ? 'Пароль для тестовых аккаунтов: password' : undefined}
         />
         {activeTab === 'register' && (
           <TextField
