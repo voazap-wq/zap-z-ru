@@ -1,7 +1,7 @@
-
 // types.ts
 
 export type UserRole = 'customer' | 'manager' | 'superadmin';
+export type Theme = 'light' | 'dark' | 'system';
 
 export interface User {
   id: string;
@@ -64,12 +64,20 @@ export interface NewsArticle {
 }
 
 export interface Page {
-    id: number;
+    id: number | string;
     title: string;
     slug: string;
     content: string;
     showInHeader: boolean;
     showInFooter: boolean;
+    isSystemPage?: boolean;
+}
+
+export interface PromoBanner {
+    id: string;
+    imageUrl: string;
+    linkUrl: string;
+    enabled: boolean;
 }
 
 export interface SiteSettings {
@@ -78,10 +86,16 @@ export interface SiteSettings {
     seoTitle: string;
     seoDescription: string;
     seoKeywords: string;
+    contactPhone: string;
+    contactEmail: string;
+    contactAddress: string;
+    promoBanners: PromoBanner[];
+    promoBannerSpeed: number; // in seconds
+    promoBannerHeight: number; // in pixels
 }
 
 export interface HomepageBlock {
-    id: 'categories' | 'featured' | 'news';
+    id: 'categories' | 'featured' | 'news' | 'promo_banner' | 'search';
     title: string;
     enabled: boolean;
 }
@@ -113,7 +127,8 @@ export interface SnackbarAction {
 // AppContext types
 export interface AppContextType {
   isDarkMode: boolean;
-  toggleDarkMode: () => void;
+  theme: Theme;
+  setTheme: (theme: Theme) => void;
   showSnackbar: (message: string, severity?: SnackbarSeverity) => void;
   
   user: User | null;
@@ -137,6 +152,8 @@ export interface AppContextType {
   orders: Order[];
   vehicles: Vehicle[];
   notifications: Notification[];
+  markNotificationAsRead: (id: number) => Promise<void>;
+  markAllNotificationsAsRead: () => Promise<void>;
   siteSettings: SiteSettings;
   homepageBlocks: HomepageBlock[];
   
@@ -160,8 +177,8 @@ export interface AppContextType {
   deleteNews: (id: number) => Promise<void>;
 
   createPage: (data: Omit<Page, 'id'>) => Promise<Page>;
-  updatePage: (id: number, data: Omit<Page, 'id'>) => Promise<Page>;
-  deletePage: (id: number) => Promise<void>;
+  updatePage: (id: number | string, data: Omit<Page, 'id'>) => Promise<Page>;
+  deletePage: (id: number | string) => Promise<void>;
 
   updateOrderStatus: (orderId: string, status: Order['status']) => Promise<Order>;
   updateSiteSettings: (data: SiteSettings) => Promise<SiteSettings>;

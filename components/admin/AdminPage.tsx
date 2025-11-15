@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import AdminSidebar from './AdminSidebar';
 import Dashboard from './Dashboard';
@@ -9,8 +8,8 @@ import ManageNews from './ManageNews';
 import ManagePages from './ManagePages';
 import ManageOrders from './ManageOrders';
 import SiteSettings from './SiteSettings';
-import HomepageEditor from './HomepageEditor';
 import { useAppContext } from '../../hooks/useAppContext';
+import { ProfileTab } from '../domain/ProfilePage';
 
 export type AdminSection = 
   | 'dashboard'
@@ -20,10 +19,13 @@ export type AdminSection =
   | 'orders'
   | 'news'
   | 'pages'
-  | 'settings'
-  | 'homepage';
+  | 'settings';
 
-const AdminPage: React.FC = () => {
+interface AdminPageProps {
+  onNavigateTab: (tab: ProfileTab) => void;
+}
+
+const AdminPage: React.FC<AdminPageProps> = ({ onNavigateTab }) => {
   const { user } = useAppContext();
   const [activeSection, setActiveSection] = useState<AdminSection>('dashboard');
 
@@ -37,17 +39,11 @@ const AdminPage: React.FC = () => {
         return <ManageCategories />;
       case 'orders':
         return <ManageOrders />;
-      case 'news':
-        return <ManageNews />;
-      case 'pages':
-        return <ManagePages />;
       case 'settings':
         return <SiteSettings />;
-      case 'homepage':
-        return <HomepageEditor />;
       case 'dashboard':
       default:
-        return <Dashboard />;
+        return <Dashboard onNavigateTab={onNavigateTab} />;
     }
   }
 

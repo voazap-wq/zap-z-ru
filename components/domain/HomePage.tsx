@@ -1,10 +1,10 @@
-
 import React from 'react';
 import CategoryCard from './CategoryCard';
-import NewsCard from './NewsCard';
 import ProductSlider from './ProductSlider';
-import SearchSection from '../layout/SearchSection';
 import { useAppContext } from '../../hooks/useAppContext';
+import NewsSlider from './NewsSlider';
+import PromoBannerSlider from './PromoBannerSlider';
+import SearchSection from '../layout/SearchSection';
 
 interface HomePageProps {
   onCatalogClick: () => void;
@@ -18,6 +18,17 @@ const HomePage: React.FC<HomePageProps> = ({ onCatalogClick, searchQuery, onSear
   const featuredProducts = products.slice(0, 8); // Use more products for the slider
 
   const sections = {
+    promo_banner: (
+      <PromoBannerSlider key="promo_banner" />
+    ),
+    search: (
+      <SearchSection 
+        key="search"
+        searchQuery={searchQuery}
+        onSearchChange={onSearchChange}
+        onSearchFocus={onSearchFocus}
+      />
+    ),
     categories: (
       <section key="categories">
         <h2 className="text-2xl font-bold mb-6 text-center">Категории товаров</h2>
@@ -37,22 +48,13 @@ const HomePage: React.FC<HomePageProps> = ({ onCatalogClick, searchQuery, onSear
     news: (
       <section key="news">
         <h2 className="text-2xl font-bold mb-6 text-center">Новости и акции</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {news.map(article => (
-            <NewsCard key={article.id} article={article} />
-          ))}
-        </div>
+        <NewsSlider articles={news} />
       </section>
     ),
   };
 
   return (
     <div className="space-y-12">
-      <SearchSection 
-        searchQuery={searchQuery}
-        onSearchChange={onSearchChange}
-        onSearchFocus={onSearchFocus}
-      />
       {homepageBlocks.filter(block => block.enabled).map(block => sections[block.id])}
     </div>
   );

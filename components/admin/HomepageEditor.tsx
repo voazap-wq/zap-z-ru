@@ -1,10 +1,20 @@
 
+
 import React, { useState, useEffect } from 'react';
 import { useAppContext } from '../../hooks/useAppContext';
 import { HomepageBlock } from '../../types';
 import Card from '../ui/Card';
 import Button from '../ui/Button';
 import IconButton from '../ui/IconButton';
+
+const blockIcons: Record<HomepageBlock['id'], string> = {
+    categories: 'category',
+    featured: 'star',
+    news: 'article',
+    promo_banner: 'view_carousel',
+    // FIX: Added missing 'search' property to satisfy the Record type.
+    search: 'search',
+};
 
 const HomepageEditor: React.FC = () => {
     const { homepageBlocks, updateHomepageBlocks } = useAppContext();
@@ -51,7 +61,7 @@ const HomepageEditor: React.FC = () => {
                         <div key={block.id} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/50 rounded-md">
                             <div className="flex items-center">
                                 <span className={`material-icons mr-3 ${block.enabled ? 'text-green-500' : 'text-gray-400'}`}>
-                                    {block.id === 'categories' ? 'category' : block.id === 'featured' ? 'star' : 'article'}
+                                    {blockIcons[block.id] || 'drag_indicator'}
                                 </span>
                                 <span className={!block.enabled ? 'line-through text-gray-500' : ''}>{block.title}</span>
                             </div>

@@ -24,7 +24,7 @@ const ConfirmDialog: React.FC<ConfirmDialogProps> = ({ isOpen, onClose, onConfir
         <Button 
             type="button" 
             onClick={onConfirm}
-            className="!bg-red-600 hover:!bg-red-700 focus:ring-red-500"
+            className="!bg-primary hover:!bg-primary-dark focus:ring-primary-light"
         >
           Подтвердить
         </Button>

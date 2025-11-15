@@ -38,7 +38,7 @@ export const SideNav: React.FC<SideNavProps> = ({ isOpen, onClose, categories, o
         }`}
       >
         <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
-          <h2 className="text-lg font-semibold">Категории</h2>
+          <h2 className="text-lg font-semibold">Каталоги</h2>
           <button onClick={onClose} className="md:hidden">
             <span className="material-icons">close</span>
           </button>

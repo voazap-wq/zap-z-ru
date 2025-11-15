@@ -16,10 +16,7 @@ const AdminSidebar: React.FC<AdminSidebarProps> = ({ activeSection, onSectionCha
         { id: 'orders', label: 'Заказы', icon: 'receipt_long', roles: ['manager', 'superadmin'] },
         { id: 'products', label: 'Товары', icon: 'inventory_2', roles: ['manager', 'superadmin'] },
         { id: 'categories', label: 'Категории', icon: 'category', roles: ['manager', 'superadmin'] },
-        { id: 'news', label: 'Новости', icon: 'article', roles: ['manager', 'superadmin'] },
-        { id: 'pages', label: 'Страницы', icon: 'description', roles: ['manager', 'superadmin'] },
         { id: 'users', label: 'Пользователи', icon: 'group', roles: ['superadmin'] },
-        { id: 'homepage', label: 'Главная страница', icon: 'view_quilt', roles: ['manager', 'superadmin'] },
         { id: 'settings', label: 'Настройки сайта', icon: 'settings', roles: ['manager', 'superadmin'] },
     ];
 

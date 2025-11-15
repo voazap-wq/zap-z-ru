@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { useAppContext } from '../../hooks/useAppContext';
 import { ProfileTab } from '../domain/ProfilePage';
@@ -20,7 +19,14 @@ const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
             <h3 className="font-semibold mb-3">Информация</h3>
             <ul className="space-y-2 text-sm">
               {footerPages.map(page => (
-                <li key={page.id}><a href="#" onClick={(e) => { e.preventDefault(); onNavigate('page', page.slug)}} className="text-gray-600 dark:text-gray-400 hover:text-primary">{page.title}</a></li>
+                <li key={page.id}><a href="#" onClick={(e) => { 
+                    e.preventDefault();
+                    if (page.isSystemPage) {
+                        onNavigate(page.slug as any);
+                    } else {
+                        onNavigate('page', page.slug);
+                    }
+                }} className="text-gray-600 dark:text-gray-400 hover:text-primary">{page.title}</a></li>
               ))}
             </ul>
           </div>
@@ -42,9 +48,9 @@ const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
           <div>
             <h3 className="font-semibold mb-3">Контакты</h3>
             <ul className="space-y-2 text-sm text-gray-600 dark:text-gray-400">
-              <li>+7 (800) 555-35-35</li>
-              <li>info@autozapchasti.com</li>
-              <li>г. Москва, ул. Пушкина, д. Колотушкина</li>
+              {siteSettings.contactPhone && <li>{siteSettings.contactPhone}</li>}
+              {siteSettings.contactEmail && <li>{siteSettings.contactEmail}</li>}
+              {siteSettings.contactAddress && <li>{siteSettings.contactAddress}</li>}
             </ul>
           </div>
         </div>

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { AppContextProvider } from './context/AppContext';
 import { useAppContext } from './hooks/useAppContext';
 import Header from './components/layout/Header';
@@ -13,8 +13,9 @@ import { SideNav } from './components/layout/SideNav';
 import AuthDialog from './components/domain/AuthDialog';
 import CartView from './components/domain/CartView';
 import { api } from './services/api';
-import { Product, Category, NewsArticle, Page, SiteSettings, HomepageBlock, User, Order, Vehicle, Notification, CartItem, UserRole } from './types';
+import { Product, Category, NewsArticle, Page, SiteSettings, HomepageBlock, User, Order, Vehicle, Notification, CartItem, UserRole, Theme } from './types';
 import Snackbar from './components/ui/Snackbar';
+import TopBar from './components/layout/TopBar';
 
 type PriceSort = 'none' | 'asc' | 'desc';
 type CurrentPage = 'home' | 'catalog' | 'profile' | 'admin' | 'page';
@@ -42,6 +43,8 @@ const MainApp: React.FC = () => {
     const [brandFilters, setBrandFilters] = useState<string[]>([]);
     const [availabilityFilter, setAvailabilityFilter] = useState(false);
     const [priceSort, setPriceSort] = useState<PriceSort>('none');
+
+    const staticPagesForRouting = useMemo(() => pages.filter(p => !p.isSystemPage), [pages]);
 
     const handleNavigate = (page: CurrentPage, slug: string | null = null, subPage: ProfileTab | null = null) => {
       setCurrentPage(page);
@@ -79,19 +82,8 @@ const MainApp: React.FC = () => {
       });
 
     const availableBrands = [...new Set(products.map(p => p.brand))];
-    
-    const homePageProps = {
-        onCatalogClick: () => handleNavigate('catalog'),
-        searchQuery: searchQuery,
-        onSearchChange: setSearchQuery,
-        onSearchFocus: handleSearchFocus
-    };
 
     const renderPage = () => {
-        const isAdmin = user?.role === 'manager' || user?.role === 'superadmin';
-        if (isAdmin && currentPage === 'admin') {
-            return <AdminPage />;
-        }
         switch (currentPage) {
             case 'catalog':
                 return <CatalogPage 
@@ -107,23 +99,39 @@ const MainApp: React.FC = () => {
             case 'profile':
                 if (!user) {
                     setAuthDialogOpen(true);
-                    return <HomePage {...homePageProps} />;
+                    return <HomePage 
+                        onCatalogClick={() => handleNavigate('catalog')}
+                        searchQuery={searchQuery}
+                        onSearchChange={setSearchQuery}
+                        onSearchFocus={handleSearchFocus}
+                    />;
                 }
                 return <ProfilePage initialTab={activeProfileTab} />;
             case 'page':
-                const pageToRender = pages.find(p => p.slug === activePageSlug);
+                const pageToRender = staticPagesForRouting.find(p => p.slug === activePageSlug);
                 if (pageToRender) {
                     return <StaticPage page={pageToRender} />;
                 }
                  // Fallback to home if page not found
-                 return <HomePage {...homePageProps} />;
+                 return <HomePage 
+                    onCatalogClick={() => handleNavigate('catalog')}
+                    searchQuery={searchQuery}
+                    onSearchChange={setSearchQuery}
+                    onSearchFocus={handleSearchFocus}
+                 />;
             default:
-                return <HomePage {...homePageProps} />;
+                return <HomePage 
+                    onCatalogClick={() => handleNavigate('catalog')}
+                    searchQuery={searchQuery}
+                    onSearchChange={setSearchQuery}
+                    onSearchFocus={handleSearchFocus}
+                />;
         }
     };
 
     return (
         <div className="flex flex-col min-h-screen bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-gray-100">
+            <TopBar />
             <Header 
                 onNavOpen={() => setSideNavOpen(true)}
                 onAuthOpen={() => setAuthDialogOpen(true)}
@@ -156,19 +164,54 @@ const getInitialUser = (): User | null => {
   return null;
 };
 
-const App: React.FC = () => {
-  const [isDarkMode, setIsDarkMode] = useState<boolean>(() => {
-    try {
-      const stored = localStorage.getItem('isDarkMode');
-      // Use system preference if nothing is stored
-      return stored ? JSON.parse(stored) : window.matchMedia('(prefers-color-scheme: dark)').matches;
-    } catch (error) {
-      console.error('Failed to parse dark mode setting from localStorage:', error);
-      // Fallback to system preference on error
-      return window.matchMedia('(prefers-color-scheme: dark)').matches;
+const getInitialTheme = (): Theme => {
+  try {
+    const storedTheme = localStorage.getItem('app_theme');
+    if (storedTheme === 'light' || storedTheme === 'dark' || storedTheme === 'system') {
+      return storedTheme;
     }
-  });
+  } catch (error) {
+    console.error("Failed to parse theme from localStorage", error);
+  }
+  return 'system';
+};
+
+
+const App: React.FC = () => {
+  const [theme, setTheme] = useState<Theme>(getInitialTheme);
   const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity: any }>({ open: false, message: '', severity: 'info' });
+
+  // isDarkMode is derived from theme and system preference
+  const [isDarkMode, setIsDarkMode] = useState<boolean>(false);
+  
+  useEffect(() => {
+    const updateDarkMode = () => {
+      const newIsDarkMode = theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+      setIsDarkMode(newIsDarkMode);
+    };
+
+    updateDarkMode(); // Set initial value
+    
+    // Listen for system changes
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    mediaQuery.addEventListener('change', updateDarkMode);
+    
+    return () => mediaQuery.removeEventListener('change', updateDarkMode);
+  }, [theme]);
+  
+  useEffect(() => {
+    try {
+      localStorage.setItem('app_theme', theme);
+    } catch (error) {
+      console.error("Failed to save theme to localStorage", error);
+    }
+    
+    if (isDarkMode) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }, [theme, isDarkMode]);
 
   // Auth State - initialized from localStorage
   const [user, setUser] = useState<User | null>(getInitialUser);
@@ -206,12 +249,6 @@ const App: React.FC = () => {
     });
   }, [showSnackbar]);
 
-  useEffect(() => {
-    localStorage.setItem('isDarkMode', JSON.stringify(isDarkMode));
-    if (isDarkMode) document.documentElement.classList.add('dark');
-    else document.documentElement.classList.remove('dark');
-  }, [isDarkMode]);
-  
   // SEO Meta Tags Effect
   useEffect(() => {
     if (siteSettings) {
@@ -243,6 +280,8 @@ const App: React.FC = () => {
     const newUser = await api.register(fullName, email, password);
     localStorage.setItem('app_currentUser', JSON.stringify(newUser));
     setUser(newUser);
+    // Reload notifications after registration to get the new user notification
+    api.getNotifications().then(setNotifications);
     showSnackbar('Регистрация прошла успешно!', 'success');
   };
   const logout = () => { 
@@ -274,6 +313,8 @@ const App: React.FC = () => {
     const total = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
     const newOrder = await api.placeOrder(user.id, { items: cart, total });
     setOrders(prev => [newOrder, ...prev]);
+    // Reload notifications after placing an order
+    api.getNotifications().then(setNotifications);
     clearCart();
     showSnackbar(`Заказ #${newOrder.id} успешно создан!`, 'success');
   };
@@ -390,17 +431,28 @@ const App: React.FC = () => {
     return newBlocks;
   };
 
+  const markNotificationAsRead = async (id: number) => {
+    await api.markNotificationAsRead(id);
+    setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
+  };
+
+  const markAllNotificationsAsRead = async () => {
+      await api.markAllNotificationsAsRead();
+      setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+  };
+
 
   if (!siteSettings) return <div className="flex items-center justify-center min-h-screen">Загрузка...</div>;
 
   return (
     <AppContextProvider value={{
-      isDarkMode, toggleDarkMode: () => setIsDarkMode(p => !p),
+      isDarkMode, theme, setTheme,
       showSnackbar,
       user, login, register, logout,
       cart, addToCart, removeFromCart, updateCartQuantity, clearCart,
       products, categories, news, pages, users, orders, vehicles, notifications, siteSettings, homepageBlocks,
       updateUser, addVehicle, deleteVehicle, placeOrder,
+      markNotificationAsRead, markAllNotificationsAsRead,
       updateUserRole, deleteUser,
       createProduct, updateProduct, deleteProduct,
       createCategory, updateCategory, deleteCategory,

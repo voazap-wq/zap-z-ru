@@ -6,7 +6,8 @@ export const AppContext = createContext<AppContextType | undefined>(undefined);
 // FIX: Updated async function stubs to throw errors, ensuring their return type `Promise<never>` is assignable to the required `Promise<T>` types in AppContextType.
 const defaultState: AppContextType = {
   isDarkMode: false,
-  toggleDarkMode: () => {},
+  theme: 'system',
+  setTheme: () => {},
   user: null,
   login: async () => {},
   register: async () => {},
@@ -26,7 +27,9 @@ const defaultState: AppContextType = {
   orders: [],
   vehicles: [],
   notifications: [],
-  siteSettings: { siteName: '', logoUrl: '', seoTitle: '', seoDescription: '', seoKeywords: '' },
+  markNotificationAsRead: async () => {},
+  markAllNotificationsAsRead: async () => {},
+  siteSettings: { siteName: '', logoUrl: '', seoTitle: '', seoDescription: '', seoKeywords: '', contactPhone: '', contactEmail: '', contactAddress: '', promoBanners: [], promoBannerSpeed: 5, promoBannerHeight: 320 },
   homepageBlocks: [],
   
   updateUser: async () => {},

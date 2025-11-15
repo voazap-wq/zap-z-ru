@@ -51,8 +51,7 @@ const ManageNews: React.FC = () => {
 
     return (
         <div>
-            <div className="flex justify-between items-center mb-4">
-                <h1 className="text-2xl font-bold">Управление новостями</h1>
+            <div className="flex justify-end mb-4">
                 <Button onClick={handleAdd}>Добавить новость</Button>
             </div>
             <DataTable columns={columns} data={news} />

@@ -47,6 +47,12 @@ const saveData = <T>(key: string, data: T) => {
 
 // --- In-memory data store, initialized from localStorage ---
 
+let systemPages: Page[] = [
+    { id: 'system_home', title: 'Главная страница', slug: 'home', content: 'Системная страница', showInHeader: false, showInFooter: false, isSystemPage: true },
+    { id: 'system_catalog', title: 'Каталог', slug: 'catalog', content: 'Системная страница', showInHeader: false, showInFooter: false, isSystemPage: true },
+    { id: 'system_profile', title: 'Личный кабинет', slug: 'profile', content: 'Системная страница', showInHeader: false, showInFooter: false, isSystemPage: true },
+];
+
 let products: Product[] = getData<Product>('app_products', mockProducts);
 let categories: Category[] = getData<Category>('app_categories', mockCategories);
 let news: NewsArticle[] = getData<NewsArticle>('app_news', mockNews);
@@ -66,28 +72,48 @@ let orders: Order[] = getData<Order>('app_orders', [
 let vehicles: Vehicle[] = getData<Vehicle>('app_vehicles', [
     { id: 'v1', userId: '1', make: 'Toyota', model: 'Camry', year: 2021, vin: 'JT1234567890' }
 ]);
-let notifications: Notification[] = getData<Notification>('app_notifications', [
-    { id: 1, title: 'Заказ #1 доставлен', message: 'Ваш заказ был успешно доставлен.', read: false, date: new Date().toISOString() }
-]);
+let notifications: Notification[] = getData<Notification>('app_notifications', []);
 let pages: Page[] = getData<Page>('app_pages', [
     { id: 1, title: 'О нас', slug: 'about', content: 'Мы - лучший магазин автозапчастей!', showInHeader: true, showInFooter: true },
-    { id: 2, title: 'Доставка', slug: 'delivery', content: 'Информация о доставке...', showInHeader: false, showInFooter: true },
+    { id: 2, title: 'Доставка', slug: 'delivery', content: 'Информация о доставке...', showInHeader: true, showInFooter: true },
 ]);
+const generateId = () => `id_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 let siteSettings: SiteSettings = getObjectData<SiteSettings>('app_siteSettings', {
     siteName: 'АвтоЗапчасти+',
     logoUrl: '',
     seoTitle: 'АвтоЗапчасти+ | Лучшие запчасти для вашего авто',
     seoDescription: 'Интернет-магазин качественных автозапчастей.',
     seoKeywords: 'автозапчасти, купить запчасти, магазин запчастей',
+    contactPhone: '+7 (800) 555-35-35',
+    contactEmail: 'info@autozapchasti.com',
+    contactAddress: 'г. Москва, ул. Пушкина, д. Колотушкина',
+    promoBanners: [
+        {
+            id: generateId(),
+            imageUrl: 'https://images.unsplash.com/photo-1617083222379-a1741065790b?q=80&w=1920&auto=format&fit=crop',
+            linkUrl: '#',
+            enabled: true,
+        },
+        {
+            id: generateId(),
+            imageUrl: 'https://images.unsplash.com/photo-1617096200347-cb04ae465063?q=80&w=1920&auto=format&fit=crop',
+            linkUrl: '#',
+            enabled: true,
+        }
+    ],
+    promoBannerSpeed: 5,
+    promoBannerHeight: 320, // Corresponds to `h-80` in Tailwind (80 * 4 = 320px)
 });
 let homepageBlocks: HomepageBlock[] = getObjectData<HomepageBlock[]>('app_homepageBlocks', [
+    { id: 'promo_banner', title: 'Рекламный баннер', enabled: true },
+    { id: 'search', title: 'Поиск по сайту', enabled: true },
     { id: 'categories', title: 'Категории', enabled: true },
     { id: 'featured', title: 'Популярные товары', enabled: true },
     { id: 'news', title: 'Новости', enabled: true },
 ]);
 
 const simulateDelay = (ms = 200) => new Promise(res => setTimeout(res, ms));
-const generateId = () => `id_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
 
 export const api = {
     // --- Auth ---
@@ -103,6 +129,18 @@ export const api = {
         const newUser: User = { id: generateId(), fullName, email, role: 'customer' };
         users.push(newUser);
         saveData('app_users', users);
+
+        // Add notification for admins
+        const adminNotification: Notification = {
+            id: Date.now(),
+            title: 'Новый пользователь',
+            message: `Зарегистрировался новый пользователь: ${fullName} (${email}).`,
+            read: false,
+            date: new Date().toISOString(),
+        };
+        notifications = [adminNotification, ...notifications];
+        saveData('app_notifications', notifications);
+
         return newUser;
     },
     updateUserProfile: async (userId: string, data: Partial<Omit<User, 'id' | 'email' | 'role'>>): Promise<User> => {
@@ -118,7 +156,10 @@ export const api = {
     getProducts: async (): Promise<Product[]> => { await simulateDelay(); return products; },
     getCategories: async (): Promise<Category[]> => { await simulateDelay(); return categories; },
     getNews: async (): Promise<NewsArticle[]> => { await simulateDelay(); return news; },
-    getPages: async (): Promise<Page[]> => { await simulateDelay(); return pages; },
+    getPages: async (): Promise<Page[]> => { 
+        await simulateDelay(); 
+        return [...systemPages, ...pages]; 
+    },
     getSiteSettings: async (): Promise<SiteSettings> => { await simulateDelay(); return siteSettings; },
     getHomepageBlocks: async (): Promise<HomepageBlock[]> => { await simulateDelay(); return homepageBlocks; },
     getUsers: async (): Promise<User[]> => { await simulateDelay(); return users; },
@@ -142,6 +183,18 @@ export const api = {
         };
         orders = [newOrder, ...orders];
         saveData('app_orders', orders);
+
+        // Add notification for admins
+        const adminNotification: Notification = {
+            id: Date.now(),
+            title: `Новый заказ #${newOrder.orderNumber}`,
+            message: `Клиент ${user.fullName} оформил заказ на сумму ${newOrder.total.toFixed(2)} ₽.`,
+            read: false,
+            date: new Date().toISOString(),
+        };
+        notifications = [adminNotification, ...notifications];
+        saveData('app_notifications', notifications);
+
         return newOrder;
     },
     addVehicle: async (userId: string, vehicleData: Omit<Vehicle, 'id' | 'userId'>): Promise<Vehicle> => {
@@ -155,6 +208,18 @@ export const api = {
         await simulateDelay();
         vehicles = vehicles.filter(v => v.id !== vehicleId);
         saveData('app_vehicles', vehicles);
+    },
+
+    markNotificationAsRead: async (id: number): Promise<void> => {
+        await simulateDelay(50);
+        notifications = notifications.map(n => n.id === id ? { ...n, read: true } : n);
+        saveData('app_notifications', notifications);
+    },
+    
+    markAllNotificationsAsRead: async (): Promise<void> => {
+        await simulateDelay(100);
+        notifications = notifications.map(n => ({ ...n, read: true }));
+        saveData('app_notifications', notifications);
     },
     
     // --- Admin Actions ---
@@ -224,15 +289,32 @@ export const api = {
         saveData('app_pages', pages);
         return newPage;
     },
-    updatePage: async (id: number, data: Omit<Page, 'id'>): Promise<Page> => {
+    updatePage: async (id: number | string, data: Omit<Page, 'id'>): Promise<Page> => {
         await simulateDelay();
-        const updatedPage: Page = { id, ...data };
+        if (typeof id === 'string' && id.startsWith('system_')) {
+            const systemPageIndex = systemPages.findIndex(p => p.id === id);
+            if (systemPageIndex === -1) {
+                throw new Error("Системная страница не найдена.");
+            }
+            const originalSystemPage = systemPages[systemPageIndex];
+            const updatedSystemPage: Page = {
+                ...originalSystemPage,
+                showInHeader: data.showInHeader,
+                showInFooter: data.showInFooter,
+            };
+            systemPages[systemPageIndex] = updatedSystemPage;
+            return updatedSystemPage;
+        }
+        const updatedPage: Page = { id, ...data, isSystemPage: false };
         pages = pages.map(p => p.id === id ? updatedPage : p);
         saveData('app_pages', pages);
         return updatedPage;
     },
-    deletePage: async (id: number): Promise<void> => {
+    deletePage: async (id: number | string): Promise<void> => {
         await simulateDelay();
+        if (typeof id === 'string' && id.startsWith('system_')) {
+            throw new Error("Системные страницы не могут быть удалены.");
+        }
         pages = pages.filter(p => p.id !== id);
         saveData('app_pages', pages);
     },
