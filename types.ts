@@ -23,13 +23,18 @@ export interface Product {
   id: number;
   name: string;
   categoryId: string; // From constants.ts
-  price: number;
+  price: number; // Selling price
+  purchasePrice?: number;
   imageUrl: string;
   description: string;
   sku: string;
   brand: string;
   inStock: boolean;
+  stockQuantity?: number;
   analogs: string[];
+  supplier?: string;
+  storageBin?: string;
+  arrivalDate?: string; // ISO String
 }
 
 export interface CartItem extends Product {
@@ -63,11 +68,64 @@ export interface NewsArticle {
   createdAt: string;
 }
 
+// --- Page Content Block Types ---
+export interface TextBlock {
+  id: string;
+  type: 'text';
+  content: string;
+}
+
+export interface ImageBlock {
+  id: string;
+  type: 'image';
+  src: string;
+  alt: string;
+}
+
+export interface ButtonBlock {
+  id: string;
+  type: 'button';
+  text: string;
+  link: string;
+  variant: 'contained' | 'outlined';
+}
+
+export interface ProductGridBlock {
+  id: string;
+  type: 'products';
+  title: string;
+  productIds: number[];
+}
+
+export interface ImageCarouselBlock {
+    id: string;
+    type: 'carousel';
+    images: {
+        id: string;
+        src: string;
+        alt: string;
+    }[];
+}
+
+export interface ColumnsBlock {
+    id: string;
+    type: 'columns';
+    columnCount: 2 | 3 | 4;
+    columns: {
+        id: string;
+        blocks: PageBlock[];
+    }[];
+}
+
+
+export type PageBlock = TextBlock | ImageBlock | ButtonBlock | ProductGridBlock | ImageCarouselBlock | ColumnsBlock;
+
+
 export interface Page {
     id: number | string;
     title: string;
     slug: string;
-    content: string;
+    content: PageBlock[];
     showInHeader: boolean;
     showInFooter: boolean;
     isSystemPage?: boolean;
@@ -115,6 +173,13 @@ export interface Notification {
     message: string;
     read: boolean;
     date: string;
+}
+
+export interface ImportLogEntry {
+  date: string; // ISO string
+  fileName: string;
+  status: 'success' | 'error';
+  message: string;
 }
 
 // Snackbar types
@@ -167,6 +232,10 @@ export interface AppContextType {
   createProduct: (data: Omit<Product, 'id'>) => Promise<Product>;
   updateProduct: (id: number, data: Omit<Product, 'id'>) => Promise<Product>;
   deleteProduct: (id: number) => Promise<void>;
+  batchUpdateProducts: (products: Omit<Product, 'id'>[]) => Promise<void>;
+  clearWarehouse: () => Promise<void>;
+  importHistory: ImportLogEntry[];
+  addImportLog: (logEntry: Omit<ImportLogEntry, 'date'>) => Promise<void>;
   
   createCategory: (data: Omit<Category, 'id'>) => Promise<Category>;
   updateCategory: (id: string, data: Omit<Category, 'id'>) => Promise<Category>;

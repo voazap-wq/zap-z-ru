@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import AdminSidebar from './AdminSidebar';
 import Dashboard from './Dashboard';
@@ -33,12 +34,12 @@ const AdminPage: React.FC<AdminPageProps> = ({ onNavigateTab }) => {
     switch(activeSection) {
       case 'users':
         return user?.role === 'superadmin' ? <ManageUsers /> : <p>Доступ запрещен</p>;
+      case 'orders':
+        return <ManageOrders />;
       case 'products':
         return <ManageProducts />;
       case 'categories':
         return <ManageCategories />;
-      case 'orders':
-        return <ManageOrders />;
       case 'settings':
         return <SiteSettings />;
       case 'dashboard':

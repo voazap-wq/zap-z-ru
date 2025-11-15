@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useForm, SubmitHandler, useFieldArray } from 'react-hook-form';
 import { SiteSettings as SiteSettingsType, HomepageBlock } from '../../types';
@@ -8,6 +9,8 @@ import Button from '../ui/Button';
 import IconButton from '../ui/IconButton';
 import ManageNews from './ManageNews';
 import ManagePages from './ManagePages';
+import ManageProducts from './ManageProducts';
+import ManageCategories from './ManageCategories';
 
 // --- Reusable Components ---
 
@@ -346,7 +349,7 @@ const SiteSettings: React.FC = () => {
     if (currentView === 'homepage') return <HomepageSettings onBack={goBack} />;
     if (currentView === 'news') return <NewsSettings onBack={goBack} />;
     if (currentView === 'pages') return <PagesSettings onBack={goBack} />;
-
+    
     // Default to 'main' view
     return (
         <div>

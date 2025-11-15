@@ -31,6 +31,7 @@ const defaultState: AppContextType = {
   markAllNotificationsAsRead: async () => {},
   siteSettings: { siteName: '', logoUrl: '', seoTitle: '', seoDescription: '', seoKeywords: '', contactPhone: '', contactEmail: '', contactAddress: '', promoBanners: [], promoBannerSpeed: 5, promoBannerHeight: 320 },
   homepageBlocks: [],
+  importHistory: [],
   
   updateUser: async () => {},
   addVehicle: async () => {},
@@ -43,6 +44,9 @@ const defaultState: AppContextType = {
   createProduct: async () => { throw new Error('AppContext not provided'); },
   updateProduct: async () => { throw new Error('AppContext not provided'); },
   deleteProduct: async () => {},
+  batchUpdateProducts: async () => {},
+  clearWarehouse: async () => {},
+  addImportLog: async () => {},
   
   createCategory: async () => { throw new Error('AppContext not provided'); },
   updateCategory: async () => { throw new Error('AppContext not provided'); },

@@ -1,3 +1,4 @@
+
 import React from 'react';
 import CategoryCard from './CategoryCard';
 import ProductSlider from './ProductSlider';
@@ -7,13 +8,13 @@ import PromoBannerSlider from './PromoBannerSlider';
 import SearchSection from '../layout/SearchSection';
 
 interface HomePageProps {
-  onCatalogClick: () => void;
+  onCategorySelect: (categoryId: string) => void;
   searchQuery: string;
   onSearchChange: (query: string) => void;
   onSearchFocus: () => void;
 }
 
-const HomePage: React.FC<HomePageProps> = ({ onCatalogClick, searchQuery, onSearchChange, onSearchFocus }) => {
+const HomePage: React.FC<HomePageProps> = ({ onCategorySelect, searchQuery, onSearchChange, onSearchFocus }) => {
   const { products, categories, news, homepageBlocks } = useAppContext();
   const featuredProducts = products.slice(0, 8); // Use more products for the slider
 
@@ -34,7 +35,7 @@ const HomePage: React.FC<HomePageProps> = ({ onCatalogClick, searchQuery, onSear
         <h2 className="text-2xl font-bold mb-6 text-center">Категории товаров</h2>
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
           {categories.map(category => (
-            <CategoryCard key={category.id} category={category} onClick={onCatalogClick} />
+            <CategoryCard key={category.id} category={category} onClick={() => onCategorySelect(category.id)} />
           ))}
         </div>
       </section>

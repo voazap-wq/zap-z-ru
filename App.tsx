@@ -1,3 +1,5 @@
+
+
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { AppContextProvider } from './context/AppContext';
 import { useAppContext } from './hooks/useAppContext';
@@ -8,12 +10,10 @@ import CatalogPage from './components/domain/CatalogPage';
 import ProfilePage, { ProfileTab } from './components/domain/ProfilePage';
 import AdminPage from './components/admin/AdminPage';
 import StaticPage from './components/domain/StaticPage';
-// FIX: SideNav does not have a default export, so we import it as a named export.
-import { SideNav } from './components/layout/SideNav';
 import AuthDialog from './components/domain/AuthDialog';
 import CartView from './components/domain/CartView';
 import { api } from './services/api';
-import { Product, Category, NewsArticle, Page, SiteSettings, HomepageBlock, User, Order, Vehicle, Notification, CartItem, UserRole, Theme } from './types';
+import { Product, Category, NewsArticle, Page, SiteSettings, HomepageBlock, User, Order, Vehicle, Notification, CartItem, UserRole, Theme, ImportLogEntry } from './types';
 import Snackbar from './components/ui/Snackbar';
 import TopBar from './components/layout/TopBar';
 
@@ -27,7 +27,6 @@ const MainApp: React.FC = () => {
       categories,
       pages,
       showSnackbar,
-      // CRUD functions from context
       placeOrder: placeOrderFromContext,
     } = useAppContext();
 
@@ -35,7 +34,6 @@ const MainApp: React.FC = () => {
     const [activePageSlug, setActivePageSlug] = useState<string | null>(null);
     const [activeProfileTab, setActiveProfileTab] = useState<ProfileTab>('profile');
 
-    const [isSideNavOpen, setSideNavOpen] = useState(false);
     const [isAuthDialogOpen, setAuthDialogOpen] = useState(false);
     const [isCartOpen, setCartOpen] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
@@ -43,12 +41,17 @@ const MainApp: React.FC = () => {
     const [brandFilters, setBrandFilters] = useState<string[]>([]);
     const [availabilityFilter, setAvailabilityFilter] = useState(false);
     const [priceSort, setPriceSort] = useState<PriceSort>('none');
+    const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
 
     const staticPagesForRouting = useMemo(() => pages.filter(p => !p.isSystemPage), [pages]);
 
     const handleNavigate = (page: CurrentPage, slug: string | null = null, subPage: ProfileTab | null = null) => {
       setCurrentPage(page);
       setActivePageSlug(slug);
+      if (page !== 'catalog') {
+        setSelectedCategoryId(null);
+        setSearchQuery('');
+      }
       if (page === 'profile') {
         setActiveProfileTab(subPage || 'profile');
       }
@@ -71,7 +74,13 @@ const MainApp: React.FC = () => {
         handleNavigate('profile', null, 'orders');
     };
 
+    const handleCategorySelect = (categoryId: string) => {
+        setSelectedCategoryId(categoryId);
+        handleNavigate('catalog');
+    };
+
     const filteredProducts = products
+      .filter(p => !selectedCategoryId || p.categoryId === selectedCategoryId)
       .filter(p => p.name.toLowerCase().includes(searchQuery.toLowerCase()) || p.sku.toLowerCase().includes(searchQuery.toLowerCase()))
       .filter(p => brandFilters.length === 0 || brandFilters.includes(p.brand))
       .filter(p => !availabilityFilter || p.inStock)
@@ -84,10 +93,20 @@ const MainApp: React.FC = () => {
     const availableBrands = [...new Set(products.map(p => p.brand))];
 
     const renderPage = () => {
+        const homePageProps = {
+            onCategorySelect: handleCategorySelect,
+            searchQuery: searchQuery,
+            onSearchChange: setSearchQuery,
+            onSearchFocus: handleSearchFocus,
+        };
+
         switch (currentPage) {
             case 'catalog':
                 return <CatalogPage 
                     products={filteredProducts}
+                    categories={categories}
+                    selectedCategoryId={selectedCategoryId}
+                    onSelectCategory={setSelectedCategoryId}
                     availableBrands={availableBrands}
                     filters={{ brandFilters, availabilityFilter, priceSort }}
                     onBrandFilterChange={setBrandFilters}
@@ -99,12 +118,7 @@ const MainApp: React.FC = () => {
             case 'profile':
                 if (!user) {
                     setAuthDialogOpen(true);
-                    return <HomePage 
-                        onCatalogClick={() => handleNavigate('catalog')}
-                        searchQuery={searchQuery}
-                        onSearchChange={setSearchQuery}
-                        onSearchFocus={handleSearchFocus}
-                    />;
+                    return <HomePage {...homePageProps} />;
                 }
                 return <ProfilePage initialTab={activeProfileTab} />;
             case 'page':
@@ -112,20 +126,9 @@ const MainApp: React.FC = () => {
                 if (pageToRender) {
                     return <StaticPage page={pageToRender} />;
                 }
-                 // Fallback to home if page not found
-                 return <HomePage 
-                    onCatalogClick={() => handleNavigate('catalog')}
-                    searchQuery={searchQuery}
-                    onSearchChange={setSearchQuery}
-                    onSearchFocus={handleSearchFocus}
-                 />;
+                 return <HomePage {...homePageProps} />;
             default:
-                return <HomePage 
-                    onCatalogClick={() => handleNavigate('catalog')}
-                    searchQuery={searchQuery}
-                    onSearchChange={setSearchQuery}
-                    onSearchFocus={handleSearchFocus}
-                />;
+                return <HomePage {...homePageProps} />;
         }
     };
 
@@ -133,12 +136,14 @@ const MainApp: React.FC = () => {
         <div className="flex flex-col min-h-screen bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-gray-100">
             <TopBar />
             <Header 
-                onNavOpen={() => setSideNavOpen(true)}
+                onNavOpen={() => {
+                    setSelectedCategoryId(null);
+                    handleNavigate('catalog');
+                }}
                 onAuthOpen={() => setAuthDialogOpen(true)}
                 onCartOpen={() => setCartOpen(true)}
                 onNavigate={handleNavigate}
             />
-            <SideNav isOpen={isSideNavOpen} onClose={() => setSideNavOpen(false)} categories={categories} onNavigate={() => handleNavigate('catalog')} />
             <AuthDialog isOpen={isAuthDialogOpen} onClose={() => setAuthDialogOpen(false)} />
             <CartView isOpen={isCartOpen} onClose={() => setCartOpen(false)} onCheckout={handleCheckout} />
             
@@ -150,7 +155,6 @@ const MainApp: React.FC = () => {
     );
 };
 
-// Helper to get initial user state from localStorage
 const getInitialUser = (): User | null => {
   try {
     const storedUser = localStorage.getItem('app_currentUser');
@@ -159,7 +163,7 @@ const getInitialUser = (): User | null => {
     }
   } catch (error) {
     console.error("Failed to parse user from localStorage", error);
-    localStorage.removeItem('app_currentUser'); // Clear corrupted data
+    localStorage.removeItem('app_currentUser'); 
   }
   return null;
 };
@@ -181,7 +185,6 @@ const App: React.FC = () => {
   const [theme, setTheme] = useState<Theme>(getInitialTheme);
   const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity: any }>({ open: false, message: '', severity: 'info' });
 
-  // isDarkMode is derived from theme and system preference
   const [isDarkMode, setIsDarkMode] = useState<boolean>(false);
   
   useEffect(() => {
@@ -190,9 +193,8 @@ const App: React.FC = () => {
       setIsDarkMode(newIsDarkMode);
     };
 
-    updateDarkMode(); // Set initial value
+    updateDarkMode(); 
     
-    // Listen for system changes
     const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
     mediaQuery.addEventListener('change', updateDarkMode);
     
@@ -213,11 +215,9 @@ const App: React.FC = () => {
     }
   }, [theme, isDarkMode]);
 
-  // Auth State - initialized from localStorage
   const [user, setUser] = useState<User | null>(getInitialUser);
   const [cart, setCart] = useState<CartItem[]>([]);
 
-  // Data State
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [news, setNews] = useState<NewsArticle[]>([]);
@@ -228,28 +228,27 @@ const App: React.FC = () => {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [siteSettings, setSiteSettings] = useState<SiteSettings | null>(null);
   const [homepageBlocks, setHomepageBlocks] = useState<HomepageBlock[]>([]);
+  const [importHistory, setImportHistory] = useState<ImportLogEntry[]>([]);
 
   const showSnackbar = useCallback((message: string, severity = 'info') => {
     setSnackbar({ open: true, message, severity });
   }, []);
 
-  // Initial Data Load
   useEffect(() => {
     Promise.all([
       api.getProducts(), api.getCategories(), api.getNews(), api.getPages(),
       api.getSiteSettings(), api.getHomepageBlocks(), api.getUsers(),
-      api.getOrders(), api.getVehicles(), api.getNotifications()
-    ]).then(([p, c, n, pg, s, hb, u, o, v, nt]) => {
+      api.getOrders(), api.getVehicles(), api.getNotifications(), api.getImportHistory()
+    ]).then(([p, c, n, pg, s, hb, u, o, v, nt, ih]) => {
       setProducts(p); setCategories(c); setNews(n); setPages(pg);
       setSiteSettings(s); setHomepageBlocks(hb); setUsers(u);
-      setOrders(o); setVehicles(v); setNotifications(nt);
+      setOrders(o); setVehicles(v); setNotifications(nt); setImportHistory(ih);
     }).catch(error => {
         console.error("Failed to load initial data:", error);
         showSnackbar("Не удалось загрузить данные. Попробуйте обновить страницу.", "error");
     });
   }, [showSnackbar]);
 
-  // SEO Meta Tags Effect
   useEffect(() => {
     if (siteSettings) {
         document.title = siteSettings.seoTitle || siteSettings.siteName;
@@ -269,7 +268,6 @@ const App: React.FC = () => {
     }
   }, [siteSettings]);
 
-  // --- CONTEXT VALUE ---
   const login = async (email: string, password: string) => {
     const loggedInUser = await api.login(email, password);
     localStorage.setItem('app_currentUser', JSON.stringify(loggedInUser));
@@ -280,7 +278,6 @@ const App: React.FC = () => {
     const newUser = await api.register(fullName, email, password);
     localStorage.setItem('app_currentUser', JSON.stringify(newUser));
     setUser(newUser);
-    // Reload notifications after registration to get the new user notification
     api.getNotifications().then(setNotifications);
     showSnackbar('Регистрация прошла успешно!', 'success');
   };
@@ -313,7 +310,6 @@ const App: React.FC = () => {
     const total = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
     const newOrder = await api.placeOrder(user.id, { items: cart, total });
     setOrders(prev => [newOrder, ...prev]);
-    // Reload notifications after placing an order
     api.getNotifications().then(setNotifications);
     clearCart();
     showSnackbar(`Заказ #${newOrder.id} успешно создан!`, 'success');
@@ -321,7 +317,7 @@ const App: React.FC = () => {
   const updateUser = async (data: Partial<Omit<User, 'id' | 'email' | 'role'>>) => {
     if (!user) throw new Error('Пользователь не авторизован');
     const updatedUser = await api.updateUserProfile(user.id, data);
-    localStorage.setItem('app_currentUser', JSON.stringify(updatedUser)); // Keep session in sync
+    localStorage.setItem('app_currentUser', JSON.stringify(updatedUser)); 
     setUser(updatedUser);
     setUsers(prev => prev.map(u => u.id === updatedUser.id ? updatedUser : u));
     showSnackbar('Профиль обновлен', 'success');
@@ -338,16 +334,12 @@ const App: React.FC = () => {
     showSnackbar('Транспорт удален', 'success');
   };
   
-  // --- ADMIN FUNCTIONS ---
-  // FIX: Removed incorrect 'as any[]' cast to fix type error.
-  // FIX: Added explicit return type and returned the new item to match AppContextType.
   const createHandler = <T, U>(apiFn: (data: T) => Promise<U>, setData: React.Dispatch<React.SetStateAction<U[]>>, name: string) => async (data: T): Promise<U> => {
     const newItem = await apiFn(data);
     setData(prev => [newItem, ...prev as any]);
     showSnackbar(`${name} успешно создан`, 'success');
     return newItem;
   };
-  // FIX: Added explicit return type and returned the updated item to match AppContextType.
   const updateHandler = <T, U extends { id: any }>(apiFn: (id: any, data: T) => Promise<U>, setData: React.Dispatch<React.SetStateAction<U[]>>, name: string) => async (id: any, data: T): Promise<U> => {
     const updatedItem = await apiFn(id, data);
     setData(prev => prev.map(item => item.id === id ? updatedItem : item));
@@ -370,6 +362,22 @@ const App: React.FC = () => {
   const createProduct = createHandler(api.createProduct, setProducts as any, 'Товар');
   const updateProduct = updateHandler(api.updateProduct, setProducts as any, 'Товар');
   const deleteProduct = deleteHandler(api.deleteProduct, setProducts as any, 'Товар');
+  const batchUpdateProducts = async (productsToUpsert: Omit<Product, 'id'>[]) => {
+      await api.batchUpdateProducts(productsToUpsert);
+      const updatedProducts = await api.getProducts();
+      setProducts(updatedProducts);
+      showSnackbar(`Импорт завершен. Обработано ${productsToUpsert.length} записей.`, 'success');
+  };
+  const clearWarehouse = async () => {
+    await api.clearWarehouse();
+    setProducts([]);
+    showSnackbar('Склад успешно очищен', 'success');
+  };
+  const addImportLog = async (logEntry: Omit<ImportLogEntry, 'date'>) => {
+      await api.addImportLog(logEntry);
+      const updatedHistory = await api.getImportHistory();
+      setImportHistory(updatedHistory);
+  };
   
   const createCategory = createHandler(api.createCategory, setCategories as any, 'Категория');
   const updateCategory = updateHandler(api.updateCategory, setCategories as any, 'Категория');
@@ -383,13 +391,11 @@ const App: React.FC = () => {
   const updatePage = updateHandler(api.updatePage, setPages as any, 'Страница');
   const deletePage = deleteHandler(api.deletePage, setPages as any, 'Страница');
 
-  // FIX: Returned the updated order to match AppContextType.
   const updateOrderStatus = async (orderId: string, status: Order['status']) => {
     const updatedOrder = await api.updateOrderStatus(orderId, status);
     setOrders(prev => prev.map(o => o.id === orderId ? updatedOrder : o));
     showSnackbar(`Статус заказа #${orderId} обновлен`, 'success');
     
-    // Send notification to Telegram bot
     if (updatedOrder.userId) {
         const statusMap: Record<Order['status'], string> = {
             pending: 'В обработке',
@@ -415,7 +421,6 @@ const App: React.FC = () => {
     return updatedOrder;
   };
 
-  // FIX: Returned the new settings to match AppContextType.
   const updateSiteSettings = async (data: SiteSettings) => {
     const newSettings = await api.updateSiteSettings(data);
     setSiteSettings(newSettings);
@@ -423,7 +428,6 @@ const App: React.FC = () => {
     return newSettings;
   };
 
-  // FIX: Returned the new blocks to match AppContextType.
   const updateHomepageBlocks = async (blocks: HomepageBlock[]) => {
     const newBlocks = await api.updateHomepageBlocks(blocks);
     setHomepageBlocks(newBlocks);
@@ -450,11 +454,11 @@ const App: React.FC = () => {
       showSnackbar,
       user, login, register, logout,
       cart, addToCart, removeFromCart, updateCartQuantity, clearCart,
-      products, categories, news, pages, users, orders, vehicles, notifications, siteSettings, homepageBlocks,
+      products, categories, news, pages, users, orders, vehicles, notifications, siteSettings, homepageBlocks, importHistory,
       updateUser, addVehicle, deleteVehicle, placeOrder,
       markNotificationAsRead, markAllNotificationsAsRead,
       updateUserRole, deleteUser,
-      createProduct, updateProduct, deleteProduct,
+      createProduct, updateProduct, deleteProduct, batchUpdateProducts, clearWarehouse, addImportLog,
       createCategory, updateCategory, deleteCategory,
       createNews, updateNews, deleteNews,
       createPage, updatePage, deletePage,

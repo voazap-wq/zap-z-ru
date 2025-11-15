@@ -1,6 +1,6 @@
 // services/api.ts
 import { mockProducts, mockCategories, mockNews } from '../constants';
-import { Product, Category, NewsArticle, Page, SiteSettings, HomepageBlock, User, Order, Vehicle, Notification, UserRole, CartItem } from '../types';
+import { Product, Category, NewsArticle, Page, SiteSettings, HomepageBlock, User, Order, Vehicle, Notification, UserRole, CartItem, ImportLogEntry } from '../types';
 
 // --- LocalStorage Persistence Layer ---
 
@@ -45,12 +45,14 @@ const saveData = <T>(key: string, data: T) => {
     }
 };
 
+const generateId = () => `id_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
 // --- In-memory data store, initialized from localStorage ---
 
 let systemPages: Page[] = [
-    { id: 'system_home', title: 'Главная страница', slug: 'home', content: 'Системная страница', showInHeader: false, showInFooter: false, isSystemPage: true },
-    { id: 'system_catalog', title: 'Каталог', slug: 'catalog', content: 'Системная страница', showInHeader: false, showInFooter: false, isSystemPage: true },
-    { id: 'system_profile', title: 'Личный кабинет', slug: 'profile', content: 'Системная страница', showInHeader: false, showInFooter: false, isSystemPage: true },
+    { id: 'system_home', title: 'Главная страница', slug: 'home', content: [], showInHeader: false, showInFooter: false, isSystemPage: true },
+    { id: 'system_catalog', title: 'Каталог', slug: 'catalog', content: [], showInHeader: false, showInFooter: false, isSystemPage: true },
+    { id: 'system_profile', title: 'Личный кабинет', slug: 'profile', content: [], showInHeader: false, showInFooter: false, isSystemPage: true },
 ];
 
 let products: Product[] = getData<Product>('app_products', mockProducts);
@@ -73,11 +75,57 @@ let vehicles: Vehicle[] = getData<Vehicle>('app_vehicles', [
     { id: 'v1', userId: '1', make: 'Toyota', model: 'Camry', year: 2021, vin: 'JT1234567890' }
 ]);
 let notifications: Notification[] = getData<Notification>('app_notifications', []);
+let importHistory: ImportLogEntry[] = getData<ImportLogEntry>('app_import_history', []);
 let pages: Page[] = getData<Page>('app_pages', [
-    { id: 1, title: 'О нас', slug: 'about', content: 'Мы - лучший магазин автозапчастей!', showInHeader: true, showInFooter: true },
-    { id: 2, title: 'Доставка', slug: 'delivery', content: 'Информация о доставке...', showInHeader: true, showInFooter: true },
+    { id: 1, title: 'О нас', slug: 'about', content: [{id: generateId(), type: 'text', content: 'Мы - лучший магазин автозапчастей!'}], showInHeader: true, showInFooter: true },
+    { id: 2, title: 'Доставка', slug: 'delivery', content: [{id: generateId(), type: 'text', content: 'Информация о доставке...'}], showInHeader: true, showInFooter: true },
+    { id: 3, title: 'тест', slug: 'test', content: [
+        {
+            id: generateId(),
+            type: 'columns',
+            columnCount: 2,
+            columns: [
+                {
+                    id: generateId(),
+                    blocks: [
+                        {
+                            id: generateId(),
+                            type: 'image',
+                            src: 'https://images.unsplash.com/photo-1517423568366-8b83523034fd?q=80&w=800&auto=format&fit=crop',
+                            alt: 'Собака в очках'
+                        }
+                    ]
+                },
+                {
+                    id: generateId(),
+                    blocks: [
+                        {
+                            id: generateId(),
+                            type: 'text',
+                            content: 'Это текст в правой колонке.\n\nВы можете разместить здесь описание, характеристики или любой другой контент.'
+                        },
+                        {
+                            id: generateId(),
+                            type: 'button',
+                            text: 'Узнать больше',
+                            link: '#',
+                            variant: 'outlined'
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            id: generateId(),
+            type: 'carousel',
+            images: [
+                { id: generateId(), src: 'https://images.unsplash.com/photo-1598128558393-70ff21433be0?q=80&w=800&auto=format&fit=crop', alt: 'Автомобиль 1' },
+                { id: generateId(), src: 'https://images.unsplash.com/photo-1552519507-da3b142c6e3d?q=80&w=800&auto=format&fit=crop', alt: 'Автомобиль 2' },
+                { id: generateId(), src: 'https://images.unsplash.com/photo-1583121274602-3e2820c69888?q=80&w=800&auto=format&fit=crop', alt: 'Автомобиль 3' },
+            ]
+        }
+    ], showInHeader: true, showInFooter: false },
 ]);
-const generateId = () => `id_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 let siteSettings: SiteSettings = getObjectData<SiteSettings>('app_siteSettings', {
     siteName: 'АвтоЗапчасти+',
     logoUrl: '',
@@ -166,6 +214,7 @@ export const api = {
     getOrders: async (): Promise<Order[]> => { await simulateDelay(); return orders; },
     getVehicles: async (): Promise<Vehicle[]> => { await simulateDelay(); return vehicles; },
     getNotifications: async (): Promise<Notification[]> => { await simulateDelay(); return notifications; },
+    getImportHistory: async (): Promise<ImportLogEntry[]> => { await simulateDelay(); return importHistory; },
     
     // --- User Actions ---
     placeOrder: async (userId: string, orderData: { items: CartItem[], total: number }): Promise<Order> => {
@@ -225,14 +274,22 @@ export const api = {
     // --- Admin Actions ---
     createProduct: async (data: Omit<Product, 'id'>): Promise<Product> => {
         await simulateDelay();
-        const newProduct: Product = { id: Date.now(), ...data };
+        const newProduct: Product = { 
+            id: Date.now(), 
+            ...data,
+            inStock: (data.stockQuantity ?? 0) > 0,
+        };
         products = [newProduct, ...products];
         saveData('app_products', products);
         return newProduct;
     },
     updateProduct: async (id: number, data: Omit<Product, 'id'>): Promise<Product> => {
         await simulateDelay();
-        const updatedProduct: Product = { id, ...data };
+        const updatedProduct: Product = { 
+            id, 
+            ...data,
+            inStock: (data.stockQuantity ?? 0) > 0,
+        };
         products = products.map(p => p.id === id ? updatedProduct : p);
         saveData('app_products', products);
         return updatedProduct;
@@ -241,6 +298,41 @@ export const api = {
         await simulateDelay();
         products = products.filter(p => p.id !== id);
         saveData('app_products', products);
+    },
+    batchUpdateProducts: async (data: Omit<Product, 'id'>[]): Promise<void> => {
+        await simulateDelay(500); // longer delay for batch operation
+        data.forEach(productData => {
+            const processedData = {
+                ...productData,
+                inStock: (productData.stockQuantity ?? 0) > 0,
+            };
+
+            const existingProductIndex = products.findIndex(p => p.sku.toLowerCase() === processedData.sku.toLowerCase());
+            if (existingProductIndex > -1) {
+                // Update existing product
+                const existingProduct = products[existingProductIndex];
+                products[existingProductIndex] = { ...existingProduct, ...processedData, id: existingProduct.id };
+            } else {
+                // Create new product
+                const newProduct: Product = { id: Date.now() + Math.random(), ...processedData };
+                products.unshift(newProduct);
+            }
+        });
+        saveData('app_products', products);
+    },
+    clearWarehouse: async (): Promise<void> => {
+        await simulateDelay(300);
+        products = [];
+        saveData('app_products', products);
+    },
+    addImportLog: async (logEntryData: Omit<ImportLogEntry, 'date'>): Promise<void> => {
+        await simulateDelay(50);
+        const newLogEntry: ImportLogEntry = {
+            date: new Date().toISOString(),
+            ...logEntryData
+        };
+        importHistory.push(newLogEntry);
+        saveData('app_import_history', importHistory);
     },
     createCategory: async (data: Omit<Category, 'id'>): Promise<Category> => {
         await simulateDelay();
