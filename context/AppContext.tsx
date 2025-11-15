@@ -38,6 +38,7 @@ const defaultState: AppContextType = {
   deleteVehicle: async () => {},
   placeOrder: async () => {},
   
+  createCustomerByManager: async () => { throw new Error('AppContext not provided'); },
   updateUserRole: async () => {},
   deleteUser: async () => {},
 
@@ -61,6 +62,7 @@ const defaultState: AppContextType = {
   deletePage: async () => {},
   
   updateOrderStatus: async () => { throw new Error('AppContext not provided'); },
+  updateOrderItemStatus: async () => { throw new Error('AppContext not provided'); },
   updateSiteSettings: async () => { throw new Error('AppContext not provided'); },
   updateHomepageBlocks: async () => { throw new Error('AppContext not provided'); },
 };

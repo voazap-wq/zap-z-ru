@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Vehicle } from '../../types';
 import { useAppContext } from '../../hooks/useAppContext';
@@ -8,10 +7,16 @@ import IconButton from '../ui/IconButton';
 import AddVehicleDialog from './AddVehicleDialog';
 import ConfirmDialog from '../ui/ConfirmDialog';
 
-const MyGarage: React.FC = () => {
-  const { vehicles, addVehicle, deleteVehicle } = useAppContext();
+interface MyGarageProps {
+    onVinSelect: (vin: string) => void;
+}
+
+const MyGarage: React.FC<MyGarageProps> = ({ onVinSelect }) => {
+  const { vehicles: allVehicles, user, addVehicle, deleteVehicle } = useAppContext();
   const [isAddDialogOpen, setAddDialogOpen] = useState(false);
   const [vehicleToDelete, setVehicleToDelete] = useState<Vehicle | null>(null);
+  
+  const vehicles = user ? allVehicles.filter(v => v.userId === user.id) : [];
 
   const handleDeleteConfirm = async () => {
     if (vehicleToDelete) {
@@ -43,7 +48,7 @@ const MyGarage: React.FC = () => {
                     <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">VIN: {vehicle.vin}</p>
                 </div>
                 <div className="flex items-center">
-                    <Button variant="text" className="!py-1 !px-2 mr-1">Подобрать</Button>
+                    <Button variant="text" className="!py-1 !px-2 mr-1" onClick={() => onVinSelect(vehicle.vin)}>Подобрать</Button>
                     <IconButton onClick={() => setVehicleToDelete(vehicle)} className="text-gray-400 hover:text-red-500 dark:hover:text-red-400">
                         <span className="material-icons text-xl">delete_outline</span>
                     </IconButton>

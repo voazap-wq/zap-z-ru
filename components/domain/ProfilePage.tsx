@@ -11,9 +11,10 @@ export type ProfileTab = 'profile' | 'garage' | 'orders' | 'notifications' | 'ad
 
 interface ProfilePageProps {
   initialTab?: ProfileTab;
+  onVinSelect: (vin: string) => void;
 }
 
-const ProfilePage: React.FC<ProfilePageProps> = ({ initialTab = 'profile' }) => {
+const ProfilePage: React.FC<ProfilePageProps> = ({ initialTab = 'profile', onVinSelect }) => {
   const { user, orders, vehicles, notifications } = useAppContext();
   const isAdmin = user?.role === 'manager' || user?.role === 'superadmin';
 
@@ -33,12 +34,16 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ initialTab = 'profile' }) => 
   }, [initialTab, isAdmin]);
 
 
+  // Filter data for the current user
+  const userOrders = user ? orders.filter(o => o.userId === user.id) : [];
+  const userVehicles = user ? vehicles.filter(v => v.userId === user.id) : [];
   const unreadNotificationsCount = notifications.filter(n => !n.read).length;
+
 
   const tabs: { id: ProfileTab; label: string }[] = [
     { id: 'profile', label: 'Мой профиль' },
-    { id: 'garage', label: `Мой гараж (${vehicles.length})` },
-    { id: 'orders', label: `История заказов (${orders.length})` },
+    { id: 'garage', label: `Мой гараж (${userVehicles.length})` },
+    { id: 'orders', label: `История заказов (${userOrders.length})` },
     { id: 'notifications', label: `Уведомления (${unreadNotificationsCount})` },
   ];
 
@@ -49,7 +54,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ initialTab = 'profile' }) => 
   const renderContent = () => {
     switch(activeTab) {
       case 'garage':
-        return <MyGarage />;
+        return <MyGarage onVinSelect={onVinSelect} />;
       case 'orders':
         return <OrderHistory />;
       case 'notifications':

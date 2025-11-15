@@ -1,9 +1,11 @@
 
+
 import React, { useState } from 'react';
 import { useAppContext } from '../../hooks/useAppContext';
 import { Order } from '../../types';
 import Card from '../ui/Card';
 import IconButton from '../ui/IconButton';
+import OrderDetailsTable from './OrderDetailsTable';
 
 const statusMap: Record<Order['status'], { text: string; color: string; bg: string }> = {
   pending: { text: 'В обработке', color: 'text-yellow-800 dark:text-yellow-300', bg: 'bg-yellow-100 dark:bg-yellow-900/30' },
@@ -64,26 +66,11 @@ const OrderHistory: React.FC = () => {
               </div>
             </div>
             <div 
-              className={`transition-all duration-300 ease-in-out overflow-hidden ${isExpanded ? 'max-h-96' : 'max-h-0'}`}
-              style={{ maxHeight: isExpanded ? `${order.items.length * 5 + 8}rem` : '0' }} // Dynamic height adjusted
+              className={`transition-all duration-300 ease-in-out overflow-hidden ${isExpanded ? 'max-h-[500px] overflow-y-auto' : 'max-h-0'}`}
             >
               <div className="p-4 border-t dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
                   <h4 className="font-semibold mb-3 text-md">Состав заказа:</h4>
-                  <ul className="space-y-3">
-                    {order.items.map(item => (
-                      <li key={item.id} className="flex justify-between items-center text-sm">
-                          <div className="flex items-center">
-                              <img src={item.imageUrl} alt={item.name} className="w-12 h-12 object-cover rounded-md mr-4"/>
-                              <div>
-                                <p className="font-medium text-gray-800 dark:text-gray-200">{item.name}</p>
-                                <p className="text-gray-500 text-xs">Арт: {item.sku}</p>
-                                <p className="text-gray-500">{item.quantity} шт. × {item.price.toFixed(2)} ₽</p>
-                              </div>
-                          </div>
-                        <span className="font-medium">{(item.price * item.quantity).toFixed(2)} ₽</span>
-                      </li>
-                    ))}
-                  </ul>
+                  <OrderDetailsTable items={order.items} isAdmin={false} />
               </div>
             </div>
           </Card>

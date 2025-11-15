@@ -1,6 +1,6 @@
 // services/api.ts
 import { mockProducts, mockCategories, mockNews } from '../constants';
-import { Product, Category, NewsArticle, Page, SiteSettings, HomepageBlock, User, Order, Vehicle, Notification, UserRole, CartItem, ImportLogEntry } from '../types';
+import { Product, Category, NewsArticle, Page, SiteSettings, HomepageBlock, User, Order, Vehicle, Notification, UserRole, CartItem, ImportLogEntry, OrderItemStatus } from '../types';
 
 // --- LocalStorage Persistence Layer ---
 
@@ -66,10 +66,11 @@ let users: User[] = getData<User>('app_users', [
     { id: '5', fullName: 'Елена Сидорова', email: 'elena@example.com', role: 'customer', phone: '+79995678901' },
 ]);
 let orders: Order[] = getData<Order>('app_orders', [
-    { id: 'ord1', orderNumber: 1, userId: '1', items: [{...mockProducts[0], quantity: 1}, {...mockProducts[2], quantity: 2}], total: 8100, status: 'delivered', createdAt: new Date('2023-10-20T14:48:00.000Z').toISOString(), customerName: 'Иван Иванов' },
-    { id: 'ord2', orderNumber: 2, userId: '1', items: [{...mockProducts[4], quantity: 1}], total: 990, status: 'processing', createdAt: new Date('2023-10-25T10:30:00.000Z').toISOString(), customerName: 'Иван Иванов' },
-    { id: 'ord3', orderNumber: 3, userId: '1', items: [{...mockProducts[1], quantity: 1}], total: 850.50, status: 'pending', createdAt: new Date('2023-10-25T11:00:00.000Z').toISOString(), customerName: 'Иван Иванов' },
-    { id: 'ord4', orderNumber: 4, userId: '5', items: [{...mockProducts[3], quantity: 1}, {...mockProducts[5], quantity: 1}], total: 4050.99, status: 'shipped', createdAt: new Date('2023-10-26T09:00:00.000Z').toISOString(), customerName: 'Елена Сидорова' },
+    // FIX: Changed order item status from 'delivered' to 'shipped' to match the 'OrderItemStatus' type definition.
+    { id: 'ord1', orderNumber: 1, userId: '1', items: [{...mockProducts[0], quantity: 1, status: 'shipped'}, {...mockProducts[2], quantity: 2, status: 'cancelled'}], total: 8100, status: 'delivered', createdAt: new Date('2023-10-20T14:48:00.000Z').toISOString(), customerName: 'Иван Иванов' },
+    { id: 'ord2', orderNumber: 2, userId: '1', items: [{...mockProducts[4], quantity: 1, status: 'shipped'}], total: 990, status: 'processing', createdAt: new Date('2023-10-25T10:30:00.000Z').toISOString(), customerName: 'Иван Иванов' },
+    { id: 'ord3', orderNumber: 3, userId: '1', items: [{...mockProducts[1], quantity: 1, status: 'available'}], total: 850.50, status: 'pending', createdAt: new Date('2023-10-25T11:00:00.000Z').toISOString(), customerName: 'Иван Иванов' },
+    { id: 'ord4', orderNumber: 4, userId: '5', items: [{...mockProducts[3], quantity: 1, status: 'shipped'}, {...mockProducts[5], quantity: 1, status: 'shipped'}], total: 4050.99, status: 'shipped', createdAt: new Date('2023-10-26T09:00:00.000Z').toISOString(), customerName: 'Елена Сидорова' },
 ]);
 let vehicles: Vehicle[] = getData<Vehicle>('app_vehicles', [
     { id: 'v1', userId: '1', make: 'Toyota', model: 'Camry', year: 2021, vin: 'JT1234567890' }
@@ -218,14 +219,50 @@ export const api = {
     
     // --- User Actions ---
     placeOrder: async (userId: string, orderData: { items: CartItem[], total: number }): Promise<Order> => {
-        await simulateDelay();
+        await simulateDelay(400); // Simulate network latency for a critical operation
         const user = users.find(u => u.id === userId);
         if (!user) throw new Error("User not found");
+
+        // --- Stock Deduction Logic ---
+        // 1. Validate stock for all items first to prevent partial deductions
+        for (const item of orderData.items) {
+            const product = products.find(p => p.id === item.id);
+            if (!product) {
+                throw new Error(`Товар "${item.name}" не найден на складе.`);
+            }
+            if (!product.inStock || (product.stockQuantity ?? 0) < item.quantity) {
+                throw new Error(`Недостаточно товара "${item.name}" на складе. Доступно: ${product.stockQuantity ?? 0}, запрошено: ${item.quantity}.`);
+            }
+        }
+
+        // 2. If validation passes, deduct stock
+        const updatedProducts = products.map(p => {
+            const orderItem = orderData.items.find(item => item.id === p.id);
+            if (orderItem) {
+                const newQuantity = (p.stockQuantity ?? 0) - orderItem.quantity;
+                return {
+                    ...p,
+                    stockQuantity: newQuantity,
+                    inStock: newQuantity > 0,
+                };
+            }
+            return p;
+        });
+        
+        // 3. Update the main products array and save
+        products = updatedProducts;
+        saveData('app_products', products);
+        // --- End of Stock Deduction Logic ---
+
         const newOrder: Order = {
             id: `ord${Date.now()}`,
             orderNumber: orders.length > 0 ? Math.max(...orders.map(o => o.orderNumber)) + 1 : 1,
             userId,
-            ...orderData,
+            items: orderData.items.map(item => ({
+                ...item,
+                status: 'available' // Since we've checked stock, it's available
+            })),
+            total: orderData.total,
             status: 'pending',
             createdAt: new Date().toISOString(),
             customerName: user.fullName,
@@ -272,6 +309,22 @@ export const api = {
     },
     
     // --- Admin Actions ---
+    createCustomerByManager: async (data: Omit<User, 'id' | 'role'>): Promise<User> => {
+        await simulateDelay();
+        if (users.some(u => u.email === data.email)) {
+            throw new Error('Пользователь с таким email уже существует');
+        }
+        const newCustomer: User = {
+            id: generateId(),
+            fullName: data.fullName,
+            email: data.email,
+            phone: data.phone,
+            role: 'customer',
+        };
+        users.unshift(newCustomer);
+        saveData('app_users', users);
+        return newCustomer;
+    },
     createProduct: async (data: Omit<Product, 'id'>): Promise<Product> => {
         await simulateDelay();
         const newProduct: Product = { 
@@ -432,6 +485,24 @@ export const api = {
         orders = orders.map(o => o.id === orderId ? order : o);
         saveData('app_orders', orders);
         return order;
+    },
+    updateOrderItemStatus: async (orderId: string, productId: number, status: OrderItemStatus): Promise<Order> => {
+        await simulateDelay(100);
+        const orderIndex = orders.findIndex(o => o.id === orderId);
+        if (orderIndex === -1) throw new Error('Order not found');
+        
+        const order = { ...orders[orderIndex] };
+        const itemIndex = order.items.findIndex(i => i.id === productId);
+        if (itemIndex === -1) throw new Error('Item not found in order');
+
+        const updatedItems = [...order.items];
+        updatedItems[itemIndex] = { ...updatedItems[itemIndex], status };
+        
+        const updatedOrder = { ...order, items: updatedItems };
+
+        orders = orders.map(o => o.id === orderId ? updatedOrder : o);
+        saveData('app_orders', orders);
+        return updatedOrder;
     },
     updateSiteSettings: async (data: SiteSettings): Promise<SiteSettings> => {
         await simulateDelay();

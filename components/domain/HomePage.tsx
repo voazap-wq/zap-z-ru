@@ -1,4 +1,7 @@
 
+
+
+
 import React from 'react';
 import CategoryCard from './CategoryCard';
 import ProductSlider from './ProductSlider';
@@ -9,12 +12,10 @@ import SearchSection from '../layout/SearchSection';
 
 interface HomePageProps {
   onCategorySelect: (categoryId: string) => void;
-  searchQuery: string;
-  onSearchChange: (query: string) => void;
-  onSearchFocus: () => void;
+  onSearchSubmit: (query: string) => void;
 }
 
-const HomePage: React.FC<HomePageProps> = ({ onCategorySelect, searchQuery, onSearchChange, onSearchFocus }) => {
+const HomePage: React.FC<HomePageProps> = ({ onCategorySelect, onSearchSubmit }) => {
   const { products, categories, news, homepageBlocks } = useAppContext();
   const featuredProducts = products.slice(0, 8); // Use more products for the slider
 
@@ -25,9 +26,7 @@ const HomePage: React.FC<HomePageProps> = ({ onCategorySelect, searchQuery, onSe
     search: (
       <SearchSection 
         key="search"
-        searchQuery={searchQuery}
-        onSearchChange={onSearchChange}
-        onSearchFocus={onSearchFocus}
+        onSearchSubmit={onSearchSubmit}
       />
     ),
     categories: (

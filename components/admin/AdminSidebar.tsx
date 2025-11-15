@@ -1,4 +1,5 @@
 
+
 import React from 'react';
 import { AdminSection } from './AdminPage';
 import { useAppContext } from '../../hooks/useAppContext';
@@ -13,6 +14,7 @@ const AdminSidebar: React.FC<AdminSidebarProps> = ({ activeSection, onSectionCha
 
     const navItems = [
         { id: 'dashboard', label: 'Дашборд', icon: 'dashboard', roles: ['manager', 'superadmin'] },
+        { id: 'analytics', label: 'Аналитика', icon: 'analytics', roles: ['manager', 'superadmin'] },
         { id: 'orders', label: 'Заказы', icon: 'receipt_long', roles: ['manager', 'superadmin'] },
         { id: 'products', label: 'Товары', icon: 'inventory_2', roles: ['manager', 'superadmin'] },
         { id: 'categories', label: 'Категории', icon: 'category', roles: ['manager', 'superadmin'] },

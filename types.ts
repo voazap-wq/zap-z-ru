@@ -35,16 +35,21 @@ export interface Product {
   supplier?: string;
   storageBin?: string;
   arrivalDate?: string; // ISO String
+  compatibleVins?: string[];
 }
+
+export type OrderItemStatus = 'pending' | 'available' | 'shipped' | 'cancelled';
 
 export interface CartItem extends Product {
   quantity: number;
+  status: OrderItemStatus;
 }
 
 export interface OrderItem {
   productId: number;
   quantity: number;
   price: number;
+  status: OrderItemStatus;
 }
 
 export interface Order {
@@ -207,7 +212,7 @@ export interface AppContextType {
   removeFromCart: (productId: number) => void;
   updateCartQuantity: (productId: number, quantity: number) => void;
   clearCart: () => void;
-  placeOrder: () => Promise<void>;
+  placeOrder: (customerId?: string) => Promise<void>;
 
   products: Product[];
   categories: Category[];
@@ -226,6 +231,7 @@ export interface AppContextType {
   deleteVehicle: (vehicleId: string) => Promise<void>;
 
   // Admin functions
+  createCustomerByManager: (data: Omit<User, 'id' | 'role'>) => Promise<User>;
   updateUserRole: (userId: string, role: UserRole) => Promise<void>;
   deleteUser: (userId: string) => Promise<void>;
 
@@ -250,6 +256,7 @@ export interface AppContextType {
   deletePage: (id: number | string) => Promise<void>;
 
   updateOrderStatus: (orderId: string, status: Order['status']) => Promise<Order>;
+  updateOrderItemStatus: (orderId: string, productId: number, status: OrderItemStatus) => Promise<Order>;
   updateSiteSettings: (data: SiteSettings) => Promise<SiteSettings>;
   updateHomepageBlocks: (blocks: HomepageBlock[]) => Promise<HomepageBlock[]>;
 }

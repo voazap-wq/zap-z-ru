@@ -1,4 +1,5 @@
 
+
 import React, { useState } from 'react';
 import AdminSidebar from './AdminSidebar';
 import Dashboard from './Dashboard';
@@ -11,9 +12,11 @@ import ManageOrders from './ManageOrders';
 import SiteSettings from './SiteSettings';
 import { useAppContext } from '../../hooks/useAppContext';
 import { ProfileTab } from '../domain/ProfilePage';
+import AnalyticsPage from './AnalyticsPage';
 
 export type AdminSection = 
   | 'dashboard'
+  | 'analytics'
   | 'users'
   | 'products'
   | 'categories'
@@ -32,6 +35,8 @@ const AdminPage: React.FC<AdminPageProps> = ({ onNavigateTab }) => {
 
   const renderSection = () => {
     switch(activeSection) {
+      case 'analytics':
+        return <AnalyticsPage />;
       case 'users':
         return user?.role === 'superadmin' ? <ManageUsers /> : <p>Доступ запрещен</p>;
       case 'orders':

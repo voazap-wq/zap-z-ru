@@ -1,11 +1,16 @@
 
-import React from 'react';
+
+
+import React, { useState } from 'react';
 import { Product, Category } from '../../types';
 import ProductGrid from './ProductGrid';
 import ProductFilters from './ProductFilters';
 import Card from '../ui/Card';
 import CatalogCategoryCard from './CatalogCategoryCard';
 import Button from '../ui/Button';
+import ProductTable from './ProductTable';
+import { useAppContext } from '../../hooks/useAppContext';
+import GarageSelectionDialog from './GarageSelectionDialog';
 
 type PriceSort = 'none' | 'asc' | 'desc';
 
@@ -25,6 +30,9 @@ interface CatalogPageProps {
   onPriceSortChange: (sort: PriceSort) => void;
   searchQuery: string;
   onSearchChange: (query: string) => void;
+  vinFilter: string | null;
+  onClearVinFilter: () => void;
+  onVinSelect: (vin: string) => void;
 }
 
 const CatalogPage: React.FC<CatalogPageProps> = ({
@@ -39,20 +47,48 @@ const CatalogPage: React.FC<CatalogPageProps> = ({
   onPriceSortChange,
   searchQuery,
   onSearchChange,
+  vinFilter,
+  onClearVinFilter,
+  onVinSelect,
 }) => {
-
-  const showProductList = selectedCategoryId || searchQuery;
+  const { user } = useAppContext();
+  const [isGarageDialogOpen, setGarageDialogOpen] = useState(false);
+  const showProductList = selectedCategoryId || searchQuery || vinFilter;
   const selectedCategory = categories.find(c => c.id === selectedCategoryId);
+
+  const handleSelectFromGarage = (vin: string) => {
+    onVinSelect(vin);
+    setGarageDialogOpen(false);
+  };
+  
+  const getPageTitle = () => {
+    if (vinFilter) return `Запчасти для VIN: ${vinFilter}`;
+    if (selectedCategory) return selectedCategory.name;
+    if (searchQuery) return `Результаты поиска по запросу "${searchQuery}"`;
+    return 'Каталог';
+  }
 
   if (showProductList) {
     return (
       <div>
+        {vinFilter && (
+            <Card className="mb-6 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 flex items-center justify-between">
+                <div className="flex items-center">
+                    <span className="material-icons text-blue-600 dark:text-blue-300 mr-3">directions_car</span>
+                    <div>
+                        <p className="font-semibold text-blue-800 dark:text-blue-200">Подбор по VIN</p>
+                        <p className="text-sm text-blue-700 dark:text-blue-300 font-mono">{vinFilter}</p>
+                    </div>
+                </div>
+                <Button onClick={onClearVinFilter} variant="text">Сбросить</Button>
+            </Card>
+        )}
         <div className="mb-4">
-            <a href="#" onClick={(e) => { e.preventDefault(); onSelectCategory(null); }} className="text-sm text-primary hover:underline flex items-center mb-2">
+            <a href="#" onClick={(e) => { e.preventDefault(); onSelectCategory(null); onClearVinFilter(); }} className="text-sm text-primary hover:underline flex items-center mb-2">
                 <span className="material-icons text-base mr-1">arrow_back</span>
                 Ко всем каталогам
             </a>
-            <h1 className="text-3xl font-bold">{selectedCategory ? selectedCategory.name : `Результаты поиска по запросу "${searchQuery}"`}</h1>
+            <h1 className="text-3xl font-bold">{getPageTitle()}</h1>
         </div>
         <div className="flex flex-col md:flex-row gap-8">
           <aside className="w-full md:w-1/4 lg:w-1/5">
@@ -67,7 +103,11 @@ const CatalogPage: React.FC<CatalogPageProps> = ({
             />
           </aside>
           <section className="w-full md:w-3/4 lg:w-4/5">
-            <ProductGrid products={products} />
+            {searchQuery || vinFilter ? (
+              <ProductTable products={products} />
+            ) : (
+              <ProductGrid products={products} />
+            )}
           </section>
         </div>
       </div>
@@ -75,6 +115,7 @@ const CatalogPage: React.FC<CatalogPageProps> = ({
   }
 
   return (
+    <>
     <div className="flex flex-col md:flex-row gap-8">
         <aside className="w-full md:w-1/4 lg:w-1/5">
             <Card className="p-4 sticky top-24">
@@ -95,7 +136,15 @@ const CatalogPage: React.FC<CatalogPageProps> = ({
         </aside>
 
         <main className="w-full md:w-3/4 lg:w-4/5">
-            <h1 className="text-3xl font-bold mb-6">Подбор по автомобилю</h1>
+            <div className="flex justify-between items-center mb-6">
+                <h1 className="text-3xl font-bold">Подбор по автомобилю</h1>
+                {user && (
+                  <Button variant="outlined" onClick={() => setGarageDialogOpen(true)}>
+                      <span className="material-icons mr-2 -ml-1">garage</span>
+                      Выбрать из гаража
+                  </Button>
+                )}
+            </div>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                 {categories.map(category => (
                     <CatalogCategoryCard key={category.id} category={category} onClick={() => onSelectCategory(category.id)} />
@@ -113,6 +162,12 @@ const CatalogPage: React.FC<CatalogPageProps> = ({
             </Card>
         </main>
     </div>
+    <GarageSelectionDialog 
+      isOpen={isGarageDialogOpen} 
+      onClose={() => setGarageDialogOpen(false)} 
+      onSelect={handleSelectFromGarage}
+    />
+    </>
   );
 };
 

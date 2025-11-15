@@ -18,6 +18,7 @@ export const mockProducts: Product[] = [
     supplier: 'Основной поставщик',
     storageBin: 'A-12-03',
     arrivalDate: new Date('2023-10-15T00:00:00Z').toISOString(),
+    compatibleVins: ['JT1234567890'],
   },
   {
     id: 2,
@@ -35,6 +36,7 @@ export const mockProducts: Product[] = [
     supplier: 'Авто-Альянс',
     storageBin: 'B-05-11',
     arrivalDate: new Date('2023-11-01T00:00:00Z').toISOString(),
+    compatibleVins: ['JT1234567890'],
   },
   {
     id: 3,

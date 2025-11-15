@@ -174,6 +174,18 @@ if (TELEGRAM_CHANNEL_ID) {
 
 // --- EXPRESS API SETUP ---
 const app = express();
+
+// CORS Middleware to allow requests from the frontend
+app.use((req, res, next) => {
+    res.setHeader('Access-Control-Allow-Origin', '*'); // Allow any origin
+    res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+    if (req.method === 'OPTIONS') {
+        return res.sendStatus(204); // Pre-flight request
+    }
+    next();
+});
+
 app.use(bodyParser.json());
 
 app.post('/api/notify', async (req, res) => {

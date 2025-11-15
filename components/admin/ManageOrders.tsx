@@ -4,6 +4,7 @@ import { useSortableData } from '../../hooks/useSortableData';
 import { Order, User } from '../../types';
 import IconButton from '../ui/IconButton';
 import Card from '../ui/Card';
+import OrderDetailsTable from '../domain/OrderDetailsTable';
 
 const statusMap: Record<Order['status'], { text: string; color: string; bg: string }> = {
   pending: { text: 'В обработке', color: 'text-yellow-800 dark:text-yellow-300', bg: 'bg-yellow-100 dark:bg-yellow-900/30' },
@@ -162,23 +163,7 @@ const ManageOrders: React.FC = () => {
                             <tr className="bg-gray-50 dark:bg-gray-900/50">
                                 <td colSpan={7} className="p-4">
                                     <h4 className="font-semibold mb-3 text-md">Состав заказа:</h4>
-                                    <div className="space-y-2">
-                                        {order.items.map(item => (
-                                            <div key={item.id} className="flex items-center justify-between p-2 rounded-md bg-white dark:bg-gray-800 shadow-sm">
-                                                <div className="flex items-center">
-                                                    <img src={item.imageUrl} alt={item.name} className="w-12 h-12 object-cover rounded-md mr-4"/>
-                                                    <div>
-                                                        <p className="font-medium text-gray-800 dark:text-gray-200">{item.name}</p>
-                                                        <p className="text-gray-500 text-xs">Арт: {item.sku}</p>
-                                                    </div>
-                                                </div>
-                                                <div className="text-right">
-                                                    <p className="font-medium">{(item.price * item.quantity).toFixed(2)} ₽</p>
-                                                    <p className="text-gray-500 text-xs">{item.quantity} шт. × {item.price.toFixed(2)} ₽</p>
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
+                                    <OrderDetailsTable items={order.items} isAdmin={true} orderId={order.id} />
                                 </td>
                             </tr>
                         )}

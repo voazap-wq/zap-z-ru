@@ -1,5 +1,3 @@
-
-
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { AppContextProvider } from './context/AppContext';
 import { useAppContext } from './hooks/useAppContext';
@@ -13,9 +11,10 @@ import StaticPage from './components/domain/StaticPage';
 import AuthDialog from './components/domain/AuthDialog';
 import CartView from './components/domain/CartView';
 import { api } from './services/api';
-import { Product, Category, NewsArticle, Page, SiteSettings, HomepageBlock, User, Order, Vehicle, Notification, CartItem, UserRole, Theme, ImportLogEntry } from './types';
+import { Product, Category, NewsArticle, Page, SiteSettings, HomepageBlock, User, Order, Vehicle, Notification, CartItem, UserRole, Theme, ImportLogEntry, OrderItemStatus } from './types';
 import Snackbar from './components/ui/Snackbar';
 import TopBar from './components/layout/TopBar';
+import ManagerCheckoutDialog from './components/domain/ManagerCheckoutDialog';
 
 type PriceSort = 'none' | 'asc' | 'desc';
 type CurrentPage = 'home' | 'catalog' | 'profile' | 'admin' | 'page';
@@ -28,6 +27,7 @@ const MainApp: React.FC = () => {
       pages,
       showSnackbar,
       placeOrder: placeOrderFromContext,
+      createCustomerByManager,
     } = useAppContext();
 
     const [currentPage, setCurrentPage] = useState<CurrentPage>('home');
@@ -36,7 +36,9 @@ const MainApp: React.FC = () => {
 
     const [isAuthDialogOpen, setAuthDialogOpen] = useState(false);
     const [isCartOpen, setCartOpen] = useState(false);
+    const [isManagerCheckoutOpen, setManagerCheckoutOpen] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
+    const [vinFilter, setVinFilter] = useState<string | null>(null);
 
     const [brandFilters, setBrandFilters] = useState<string[]>([]);
     const [availabilityFilter, setAvailabilityFilter] = useState(false);
@@ -51,6 +53,7 @@ const MainApp: React.FC = () => {
       if (page !== 'catalog') {
         setSelectedCategoryId(null);
         setSearchQuery('');
+        setVinFilter(null);
       }
       if (page === 'profile') {
         setActiveProfileTab(subPage || 'profile');
@@ -58,8 +61,24 @@ const MainApp: React.FC = () => {
       window.scrollTo(0, 0);
     }
     
-    const handleSearchFocus = () => {
-        if (currentPage !== 'catalog') {
+    const handleVinSelect = (vin: string) => {
+        setVinFilter(vin);
+        setSearchQuery('');
+        setSelectedCategoryId(null);
+        handleNavigate('catalog');
+    };
+
+    const clearVinFilter = () => {
+        setVinFilter(null);
+    };
+
+    const handleSearch = (query: string) => {
+        const trimmedQuery = query.trim();
+        if (trimmedQuery.length === 17 && /^[a-zA-Z0-9]+$/.test(trimmedQuery)) {
+            handleVinSelect(trimmedQuery);
+        } else {
+            setVinFilter(null);
+            setSearchQuery(trimmedQuery);
             handleNavigate('catalog');
         }
     };
@@ -70,9 +89,33 @@ const MainApp: React.FC = () => {
             setAuthDialogOpen(true);
             return;
         }
-        await placeOrderFromContext();
+
+        if (user.role === 'manager' || user.role === 'superadmin') {
+            setManagerCheckoutOpen(true);
+        } else {
+            try {
+                await placeOrderFromContext();
+                handleNavigate('profile', null, 'orders');
+            } catch (error) {
+                // Snackbar is shown by the context function
+                console.error("Checkout failed:", error);
+            }
+        }
+    };
+
+    const handlePlaceOrderForCustomer = async (customerId: string) => {
+        await placeOrderFromContext(customerId);
+        setManagerCheckoutOpen(false);
         handleNavigate('profile', null, 'orders');
     };
+    
+    const handleCreateAndPlaceOrder = async (customerData: Omit<User, 'id' | 'role'>) => {
+        const newCustomer = await createCustomerByManager(customerData);
+        await placeOrderFromContext(newCustomer.id);
+        setManagerCheckoutOpen(false);
+        handleNavigate('profile', null, 'orders');
+    };
+
 
     const handleCategorySelect = (categoryId: string) => {
         setSelectedCategoryId(categoryId);
@@ -80,8 +123,9 @@ const MainApp: React.FC = () => {
     };
 
     const filteredProducts = products
+      .filter(p => !vinFilter || (p.compatibleVins && p.compatibleVins.includes(vinFilter)))
       .filter(p => !selectedCategoryId || p.categoryId === selectedCategoryId)
-      .filter(p => p.name.toLowerCase().includes(searchQuery.toLowerCase()) || p.sku.toLowerCase().includes(searchQuery.toLowerCase()))
+      .filter(p => !searchQuery || p.name.toLowerCase().includes(searchQuery.toLowerCase()) || p.sku.toLowerCase().includes(searchQuery.toLowerCase()))
       .filter(p => brandFilters.length === 0 || brandFilters.includes(p.brand))
       .filter(p => !availabilityFilter || p.inStock)
       .sort((a, b) => {
@@ -95,9 +139,7 @@ const MainApp: React.FC = () => {
     const renderPage = () => {
         const homePageProps = {
             onCategorySelect: handleCategorySelect,
-            searchQuery: searchQuery,
-            onSearchChange: setSearchQuery,
-            onSearchFocus: handleSearchFocus,
+            onSearchSubmit: handleSearch,
         };
 
         switch (currentPage) {
@@ -114,13 +156,16 @@ const MainApp: React.FC = () => {
                     onPriceSortChange={setPriceSort}
                     searchQuery={searchQuery}
                     onSearchChange={setSearchQuery}
+                    vinFilter={vinFilter}
+                    onClearVinFilter={clearVinFilter}
+                    onVinSelect={handleVinSelect}
                 />;
             case 'profile':
                 if (!user) {
                     setAuthDialogOpen(true);
                     return <HomePage {...homePageProps} />;
                 }
-                return <ProfilePage initialTab={activeProfileTab} />;
+                return <ProfilePage initialTab={activeProfileTab} onVinSelect={handleVinSelect} />;
             case 'page':
                 const pageToRender = staticPagesForRouting.find(p => p.slug === activePageSlug);
                 if (pageToRender) {
@@ -146,6 +191,12 @@ const MainApp: React.FC = () => {
             />
             <AuthDialog isOpen={isAuthDialogOpen} onClose={() => setAuthDialogOpen(false)} />
             <CartView isOpen={isCartOpen} onClose={() => setCartOpen(false)} onCheckout={handleCheckout} />
+            <ManagerCheckoutDialog 
+              isOpen={isManagerCheckoutOpen}
+              onClose={() => setManagerCheckoutOpen(false)}
+              onPlaceOrderForCustomer={handlePlaceOrderForCustomer}
+              onCreateAndPlaceOrder={handleCreateAndPlaceOrder}
+            />
             
             <main className="flex-grow container mx-auto px-4 py-8">
                 {renderPage()}
@@ -291,7 +342,7 @@ const App: React.FC = () => {
     setCart(prev => {
       const existing = prev.find(item => item.id === product.id);
       if (existing) return prev.map(item => item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item);
-      return [...prev, { ...product, quantity: 1 }];
+      return [...prev, { ...product, quantity: 1, status: 'available' }];
     });
     showSnackbar(`"${product.name}" добавлен в корзину`, 'success');
   };
@@ -301,18 +352,44 @@ const App: React.FC = () => {
     else setCart(prev => prev.map(item => (item.id === productId ? { ...item, quantity } : item)));
   };
   const clearCart = () => setCart([]);
-  const placeOrder = async () => {
-    if (!user) throw new Error("Пользователь не авторизован");
+  const placeOrder = async (customerId?: string) => {
+    const orderUserId = customerId || user?.id;
+    if (!orderUserId) {
+        const message = "Пользователь для заказа не определен";
+        showSnackbar(message, 'error');
+        throw new Error(message);
+    }
+
     if (cart.length === 0) {
       showSnackbar('Ваша корзина пуста', 'error');
       return;
     }
+    
     const total = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
-    const newOrder = await api.placeOrder(user.id, { items: cart, total });
-    setOrders(prev => [newOrder, ...prev]);
-    api.getNotifications().then(setNotifications);
-    clearCart();
-    showSnackbar(`Заказ #${newOrder.id} успешно создан!`, 'success');
+
+    try {
+      const newOrder = await api.placeOrder(orderUserId, { items: cart, total });
+      
+      const updatedProducts = await api.getProducts();
+      setProducts(updatedProducts);
+
+      setOrders(prev => [newOrder, ...prev]);
+      
+      const updatedNotifications = await api.getNotifications();
+      setNotifications(updatedNotifications);
+      
+      clearCart();
+      showSnackbar(`Заказ #${newOrder.id} для клиента ${newOrder.customerName} успешно создан!`, 'success');
+    } catch (error) {
+        console.error("Order placement failed:", error);
+        
+        const updatedProducts = await api.getProducts();
+        setProducts(updatedProducts);
+        
+        const errorMessage = error instanceof Error ? error.message : "Не удалось оформить заказ.";
+        showSnackbar(errorMessage, 'error');
+        throw error;
+    }
   };
   const updateUser = async (data: Partial<Omit<User, 'id' | 'email' | 'role'>>) => {
     if (!user) throw new Error('Пользователь не авторизован');
@@ -350,6 +427,13 @@ const App: React.FC = () => {
     await apiFn(id);
     setData(prev => prev.filter(item => item.id !== id));
     showSnackbar(`${name} удален`, 'success');
+  };
+
+  const createCustomerByManager = async (data: Omit<User, 'id' | 'role'>): Promise<User> => {
+      const newCustomer = await api.createCustomerByManager(data);
+      setUsers(prev => [newCustomer, ...prev]);
+      showSnackbar(`Новый клиент ${newCustomer.fullName} успешно создан`, 'success');
+      return newCustomer;
   };
 
   const updateUserRole = async (userId: string, role: UserRole) => {
@@ -420,6 +504,13 @@ const App: React.FC = () => {
 
     return updatedOrder;
   };
+  
+  const updateOrderItemStatus = async (orderId: string, productId: number, status: OrderItemStatus) => {
+    const updatedOrder = await api.updateOrderItemStatus(orderId, productId, status);
+    setOrders(prev => prev.map(o => o.id === orderId ? updatedOrder : o));
+    showSnackbar(`Статус товара в заказе #${updatedOrder.orderNumber} обновлен`, 'success');
+    return updatedOrder;
+  };
 
   const updateSiteSettings = async (data: SiteSettings) => {
     const newSettings = await api.updateSiteSettings(data);
@@ -456,13 +547,14 @@ const App: React.FC = () => {
       cart, addToCart, removeFromCart, updateCartQuantity, clearCart,
       products, categories, news, pages, users, orders, vehicles, notifications, siteSettings, homepageBlocks, importHistory,
       updateUser, addVehicle, deleteVehicle, placeOrder,
+      createCustomerByManager,
       markNotificationAsRead, markAllNotificationsAsRead,
       updateUserRole, deleteUser,
       createProduct, updateProduct, deleteProduct, batchUpdateProducts, clearWarehouse, addImportLog,
       createCategory, updateCategory, deleteCategory,
       createNews, updateNews, deleteNews,
       createPage, updatePage, deletePage,
-      updateOrderStatus,
+      updateOrderStatus, updateOrderItemStatus,
       updateSiteSettings, updateHomepageBlocks
     }}>
         <MainApp />
