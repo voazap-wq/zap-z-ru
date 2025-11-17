@@ -30,17 +30,36 @@ const TextBlockEditor: React.FC<{ nestIndex: string, control: any }> = ({ nestIn
 };
 
 const ImageBlockEditor: React.FC<{ nestIndex: string, control: any }> = ({ nestIndex, control }) => {
-     const { register } = useForm();
+    const { register } = useForm();
+
     return (
         <div className="space-y-3">
+             <label className="text-sm font-semibold text-gray-500 dark:text-gray-400">Изображение</label>
             <Controller
                 name={`${nestIndex}.src` as const}
                 control={control}
                 rules={{ required: "Изображение обязательно" }}
-                render={({ field: { onChange, value }, fieldState: { error } }) => (
+                render={({ field, fieldState: { error } }) => (
                     <>
-                        <ImageDropzone label="Изображение" value={value} onChange={onChange} />
-                        {error && <p className="text-red-500 text-sm mt-1">{error.message}</p>}
+                        <ImageDropzone 
+                            label="" 
+                            value={field.value} 
+                            onChange={field.onChange} 
+                            className="min-h-[10rem]" 
+                        />
+                        <TextField 
+                            id={`${nestIndex}.src`}
+                            label="или URL"
+                            register={register(`${nestIndex}.src` as const, {
+                                onChange: (e) => field.onChange(e.target.value)
+                            })}
+                            onBlur={field.onBlur}
+                            value={field.value || ''}
+                            name={field.name}
+                            ref={field.ref}
+                            error={error as any} 
+                            className="text-sm !py-1.5 mt-2" 
+                        />
                     </>
                 )}
             />
@@ -133,6 +152,16 @@ const ColumnsBlockEditor: React.FC<{ nestIndex: string, control: any }> = ({ nes
     );
 };
 
+const HtmlBlockEditor: React.FC<{ nestIndex: string, control: any }> = ({ nestIndex, control }) => {
+    const { register } = useForm();
+    return (
+        <div>
+            <label className="text-sm font-semibold text-gray-500 dark:text-gray-400">HTML-блок</label>
+            <textarea {...register(`${nestIndex}.content` as const)} rows={8} className="w-full mt-1 p-2 border rounded-md bg-white dark:bg-gray-700 dark:border-gray-600 focus:ring-primary focus:border-primary font-mono text-sm" placeholder="Вставьте сюда ваш HTML-код, например, iframe с картой." />
+        </div>
+    );
+};
+
 const BlockRenderer: React.FC<{ block: PageBlock, nestIndex: string, control: any }> = ({ block, nestIndex, control }) => {
     switch(block.type) {
         case 'text': return <TextBlockEditor nestIndex={nestIndex} control={control} />;
@@ -141,6 +170,7 @@ const BlockRenderer: React.FC<{ block: PageBlock, nestIndex: string, control: an
         case 'products': return <ProductGridBlockEditor nestIndex={nestIndex} control={control} />;
         case 'carousel': return <CarouselBlockEditor nestIndex={nestIndex} control={control} />;
         case 'columns': return <ColumnsBlockEditor nestIndex={nestIndex} control={control} />;
+        case 'html': return <HtmlBlockEditor nestIndex={nestIndex} control={control} />;
         default: return null;
     }
 };
@@ -176,6 +206,9 @@ const BlockList: React.FC<{ control: any, nestIndex: string }> = ({ control, nes
                     columns: Array.from({ length: columnCount }, () => ({ id: generateId(), blocks: [] }))
                 };
                 break;
+            case 'html': 
+                newBlock = { id: generateId(), type: 'html', content: '<div>Ваш HTML-код</div>' }; 
+                break;
             case 'text':
             default: newBlock = { id: generateId(), type: 'text', content: 'Новый текстовый блок.' }; break;
         }
@@ -202,6 +235,7 @@ const BlockList: React.FC<{ control: any, nestIndex: string }> = ({ control, nes
                     <Button type="button" variant="outlined" onClick={() => addBlock('button')} className="!text-xs !py-1 !px-2"><span className="material-icons mr-1 text-sm">smart_button</span>Кнопка</Button>
                     <Button type="button" variant="outlined" onClick={() => addBlock('products')} className="!text-xs !py-1 !px-2"><span className="material-icons mr-1 text-sm">grid_view</span>Товары</Button>
                     <Button type="button" variant="outlined" onClick={() => addBlock('carousel')} className="!text-xs !py-1 !px-2"><span className="material-icons mr-1 text-sm">collections</span>Карусель</Button>
+                    <Button type="button" variant="outlined" onClick={() => addBlock('html')} className="!text-xs !py-1 !px-2"><span className="material-icons mr-1 text-sm">code</span>HTML</Button>
                     <div ref={columnsMenuRef} className="relative inline-block">
                         <Button type="button" variant="outlined" className="!text-xs !py-1 !px-2" onClick={() => setIsColumnsMenuOpen(prev => !prev)}>
                             <span className="material-icons mr-1 text-sm">view_column</span>Колонки

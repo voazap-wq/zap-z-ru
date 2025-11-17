@@ -18,8 +18,6 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ initialTab = 'profile', onVin
   const { user, orders, vehicles, notifications } = useAppContext();
   const isAdmin = user?.role === 'manager' || user?.role === 'superadmin';
 
-  // Determine the effective tab based on user role and initial navigation target
-  // FIX: Added explicit return type to prevent incorrect type inference to 'string'.
   const getEffectiveTab = (tab: ProfileTab): ProfileTab => {
       if (isAdmin && tab === 'profile') {
           return 'admin';
@@ -27,18 +25,17 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ initialTab = 'profile', onVin
       return tab;
   };
   
-  const [activeTab, setActiveTab] = useState<ProfileTab>(getEffectiveTab(initialTab));
+  // FIX: Cast `initialTab` to `ProfileTab` to fix type mismatch.
+  const [activeTab, setActiveTab] = useState<ProfileTab>(getEffectiveTab(initialTab as ProfileTab));
 
   useEffect(() => {
-    setActiveTab(getEffectiveTab(initialTab));
+    // FIX: Cast `initialTab` to `ProfileTab` to fix type mismatch.
+    setActiveTab(getEffectiveTab(initialTab as ProfileTab));
   }, [initialTab, isAdmin]);
 
-
-  // Filter data for the current user
   const userOrders = user ? orders.filter(o => o.userId === user.id) : [];
   const userVehicles = user ? vehicles.filter(v => v.userId === user.id) : [];
   const unreadNotificationsCount = notifications.filter(n => !n.read).length;
-
 
   const tabs: { id: ProfileTab; label: string }[] = [
     { id: 'profile', label: 'Мой профиль' },
@@ -51,6 +48,10 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ initialTab = 'profile', onVin
     tabs.push({ id: 'admin', label: 'Администрирование' });
   }
 
+  const handleTabChange = (tab: ProfileTab) => {
+    setActiveTab(tab);
+  };
+
   const renderContent = () => {
     switch(activeTab) {
       case 'garage':
@@ -60,9 +61,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ initialTab = 'profile', onVin
       case 'notifications':
         return <Notifications />;
       case 'admin':
-        // FIX: The `setActiveTab` function has a wider type than `onNavigateTab` expects.
-        // It must be wrapped in an arrow function to ensure type compatibility.
-        return isAdmin ? <AdminPage onNavigateTab={(tab) => setActiveTab(tab)} /> : null;
+        return isAdmin ? <AdminPage onNavigateTab={handleTabChange} /> : null;
       case 'profile':
       default:
         return <UserProfile />;
@@ -73,8 +72,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ initialTab = 'profile', onVin
     <div>
       <h1 className="text-3xl font-bold mb-6">Личный кабинет</h1>
       <div className="mb-6">
-        {/* FIX: Wrapped state setter in an arrow function to match the onTabClick prop type, resolving a TypeScript error where the dispatcher type was incompatible with the expected callback signature. */}
-        <Tabs tabs={tabs} activeTab={activeTab} onTabClick={(tab) => setActiveTab(tab)} />
+        <Tabs tabs={tabs} activeTab={activeTab} onTabClick={handleTabChange} />
       </div>
       <div>
         {renderContent()}

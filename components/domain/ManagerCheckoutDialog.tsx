@@ -21,6 +21,11 @@ type NewCustomerFormData = {
   phone: string;
 };
 
+const TABS_CONFIG: { id: Tab, label: string }[] = [
+    {id: 'existing', label: 'Выбрать существующего'},
+    {id: 'new', label: 'Создать нового'}
+];
+
 const ManagerCheckoutDialog: React.FC<ManagerCheckoutDialogProps> = ({ isOpen, onClose, onPlaceOrderForCustomer, onCreateAndPlaceOrder }) => {
   const { users, cart } = useAppContext();
   const { register, handleSubmit, formState: { errors, isSubmitting }, reset } = useForm<NewCustomerFormData>();
@@ -91,9 +96,9 @@ const ManagerCheckoutDialog: React.FC<ManagerCheckoutDialogProps> = ({ isOpen, o
     <Dialog isOpen={isOpen} onClose={handleClose} title="Оформление заказа для клиента" className="max-w-2xl">
       <div className="mb-4">
         <Tabs 
-          tabs={[{id: 'existing', label: 'Выбрать существующего'}, {id: 'new', label: 'Создать нового'}]} 
+          tabs={TABS_CONFIG} 
           activeTab={activeTab} 
-          onTabClick={(tab) => {
+          onTabClick={(tab: Tab) => {
             setActiveTab(tab);
             setApiError('');
             setSelectedCustomer(null);

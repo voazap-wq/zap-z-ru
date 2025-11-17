@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useForm, SubmitHandler, useFieldArray } from 'react-hook-form';
 import { SiteSettings as SiteSettingsType, HomepageBlock } from '../../types';
@@ -7,10 +6,9 @@ import Card from '../ui/Card';
 import TextField from '../ui/TextField';
 import Button from '../ui/Button';
 import IconButton from '../ui/IconButton';
-import ManageNews from './ManageNews';
 import ManagePages from './ManagePages';
-import ManageProducts from './ManageProducts';
-import ManageCategories from './ManageCategories';
+import ManageNews from './ManageNews';
+import ImageDropzone from '../ui/ImageDropzone';
 
 // --- Reusable Components ---
 
@@ -52,15 +50,8 @@ const GeneralSettings: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         if (siteSettings) reset(siteSettings);
     }, [siteSettings, reset]);
 
-    const handleLogoFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-        const file = event.target.files?.[0];
-        if (file) {
-            const reader = new FileReader();
-            reader.onloadend = () => {
-                setValue('logoUrl', reader.result as string, { shouldValidate: true, shouldDirty: true });
-            };
-            reader.readAsDataURL(file);
-        }
+    const handleLogoUpload = (base64: string) => {
+        setValue('logoUrl', base64, { shouldValidate: true, shouldDirty: true });
     };
     
     const onSubmit: SubmitHandler<Partial<SiteSettingsType>> = async (data) => {
@@ -77,19 +68,14 @@ const GeneralSettings: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                     <TextField id="siteName" label="Название сайта" register={register('siteName', { required: 'Введите название сайта' })} error={errors.siteName as any} />
                     <div>
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Логотип</label>
-                        <div className="mt-1 flex items-center space-x-4">
-                            <div className="w-16 h-16 rounded-md bg-gray-200 dark:bg-gray-700 flex items-center justify-center p-1 shrink-0">
-                                {logoUrlValue ? (
-                                    <img src={logoUrlValue} alt="Предпросмотр логотипа" className="max-h-full max-w-full object-contain" />
-                                ) : (
-                                    <span className="material-icons text-gray-400 text-3xl">photo_size_select_actual</span>
-                                )}
-                            </div>
-                            <label htmlFor="logo-upload" className="cursor-pointer bg-white dark:bg-gray-800 py-2 px-3 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm leading-4 font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700">
-                                <span>Загрузить файл</span>
-                                <input id="logo-upload" name="logo-upload" type="file" className="sr-only" accept="image/*" onChange={handleLogoFileChange} />
-                            </label>
-                        </div>
+                        <ImageDropzone value={logoUrlValue || ''} onChange={handleLogoUpload} className="min-h-[10rem]" />
+                         <TextField 
+                            id="logoUrl" 
+                            label="или URL" 
+                            register={register('logoUrl')} 
+                            error={errors.logoUrl as any}
+                            className="mt-2"
+                         />
                     </div>
                 </Card>
                 <div className="flex justify-end mt-4">
@@ -153,6 +139,21 @@ const ContactSettings: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                     <TextField id="contactPhone" label="Телефон" register={register('contactPhone')} error={errors.contactPhone as any} />
                     <TextField id="contactEmail" label="Email" register={register('contactEmail')} error={errors.contactEmail as any} />
                     <TextField id="contactAddress" label="Адрес" register={register('contactAddress')} error={errors.contactAddress as any} />
+                    <TextField id="contactWhatsapp" label="WhatsApp" register={register('contactWhatsapp')} error={errors.contactWhatsapp as any} placeholder="+79991234567" />
+                    <TextField id="contactTelegram" label="Telegram" register={register('contactTelegram')} error={errors.contactTelegram as any} placeholder="username (без @)" />
+                    <div>
+                        <label htmlFor="contactMapIframe" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                            Iframe-код карты
+                        </label>
+                        <textarea
+                            id="contactMapIframe"
+                            {...register('contactMapIframe')}
+                            rows={6}
+                            className="w-full mt-1 px-3 py-2 border rounded-md bg-gray-50 dark:bg-gray-700 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-primary font-mono text-xs"
+                            placeholder="Вставьте сюда HTML-код от Яндекс.Карт или Google Maps..."
+                        ></textarea>
+                         <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Скопируйте код для встраивания карты из конструктора на сайте карт.</p>
+                    </div>
                 </Card>
                 <div className="flex justify-end mt-4">
                     <Button type="submit" disabled={isSubmitting || !isDirty}>
@@ -164,6 +165,38 @@ const ContactSettings: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     );
 };
 
+const RequisitesSettings: React.FC<{ onBack: () => void }> = ({ onBack }) => {
+    const { siteSettings, updateSiteSettings } = useAppContext();
+    const { register, handleSubmit, formState: { errors, isSubmitting, isDirty }, reset } = useForm<SiteSettingsType>();
+    
+    useEffect(() => { if (siteSettings) reset(siteSettings); }, [siteSettings, reset]);
+
+    const onSubmit: SubmitHandler<Partial<SiteSettingsType>> = async (data) => {
+        if (!siteSettings) return;
+        const updatedSettings = { ...siteSettings, ...data };
+        await updateSiteSettings(updatedSettings);
+        reset(updatedSettings);
+    };
+
+    return (
+        <SettingsSectionWrapper title="Реквизиты компании" onBack={onBack}>
+            <form onSubmit={handleSubmit(onSubmit)}>
+                <Card className="p-6 space-y-4">
+                    <TextField id="companyName" label="Название организации" register={register('companyName')} error={errors.companyName as any} />
+                    <TextField id="inn" label="ИНН" register={register('inn')} error={errors.inn as any} />
+                    <TextField id="ogrn" label="ОГРН" register={register('ogrn')} error={errors.ogrn as any} />
+                </Card>
+                <div className="flex justify-end mt-4">
+                    <Button type="submit" disabled={isSubmitting || !isDirty}>
+                        {isSubmitting ? 'Сохранение...' : 'Сохранить'}
+                    </Button>
+                </div>
+            </form>
+        </SettingsSectionWrapper>
+    );
+};
+
+
 const BannerSettings: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     const { siteSettings, updateSiteSettings } = useAppContext();
     const { register, handleSubmit, formState: { errors, isSubmitting, isDirty }, reset, control, setValue } = useForm<SiteSettingsType>();
@@ -172,15 +205,8 @@ const BannerSettings: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     
     useEffect(() => { if (siteSettings) reset(siteSettings); }, [siteSettings, reset]);
 
-    const handleBannerFileChange = (index: number, event: React.ChangeEvent<HTMLInputElement>) => {
-        const file = event.target.files?.[0];
-        if (file) {
-            const reader = new FileReader();
-            reader.onloadend = () => {
-                setValue(`promoBanners.${index}.imageUrl`, reader.result as string, { shouldValidate: true, shouldDirty: true });
-            };
-            reader.readAsDataURL(file);
-        }
+    const handleBannerUpload = async (index: number, base64: string) => {
+        setValue(`promoBanners.${index}.imageUrl`, base64, { shouldValidate: true, shouldDirty: true });
     };
     
     const addNewBanner = () => append({ id: `new_${Date.now()}`, imageUrl: '', linkUrl: '#', enabled: true, });
@@ -206,14 +232,12 @@ const BannerSettings: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                             {fields.map((field, index) => (
                                 <div key={field.id} className="p-3 border rounded-md dark:border-gray-600 relative bg-gray-50 dark:bg-gray-700/50">
                                     <div className="flex items-start space-x-4">
-                                        <div className="flex flex-col space-y-2 shrink-0">
-                                            <div className="w-48 h-24 rounded-md bg-gray-200 dark:bg-gray-700 bg-cover bg-center" style={{ backgroundImage: `url(${field.imageUrl || ''})` }} role="img">
-                                                {!field.imageUrl && <span className="material-icons text-gray-400 flex items-center justify-center h-full">photo_size_select_actual</span>}
-                                            </div>
-                                            <label htmlFor={`promoBanners.${index}.imageUpload`} className="cursor-pointer text-center bg-white dark:bg-gray-800 py-1 px-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-xs font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700">
-                                                <span>Загрузить</span>
-                                                <input id={`promoBanners.${index}.imageUpload`} type="file" className="sr-only" accept="image/*" onChange={(e) => handleBannerFileChange(index, e)} />
-                                            </label>
+                                        <div className="w-48 shrink-0">
+                                            <ImageDropzone 
+                                                value={field.imageUrl} 
+                                                onChange={(base64) => handleBannerUpload(index, base64)} 
+                                                className="w-48 h-24 !p-1"
+                                            />
                                         </div>
                                         <div className="flex-grow space-y-3">
                                             <TextField id={`promoBanners.${index}.linkUrl`} label="Ссылка (URL)" register={register(`promoBanners.${index}.linkUrl`)} error={errors.promoBanners?.[index]?.linkUrl as any} className="!py-1.5 text-sm" />
@@ -321,23 +345,11 @@ const HomepageSettings: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     );
 };
 
-const NewsSettings: React.FC<{ onBack: () => void }> = ({ onBack }) => (
-    <SettingsSectionWrapper title="Управление новостями" onBack={onBack}>
-        <ManageNews />
-    </SettingsSectionWrapper>
-);
-
-const PagesSettings: React.FC<{ onBack: () => void }> = ({ onBack }) => (
-    <SettingsSectionWrapper title="Управление страницами" onBack={onBack}>
-        <ManagePages />
-    </SettingsSectionWrapper>
-);
-
 
 // --- Main SiteSettings Component ---
 
 const SiteSettings: React.FC = () => {
-    type View = 'main' | 'general' | 'seo' | 'contacts' | 'banner' | 'homepage' | 'news' | 'pages';
+    type View = 'main' | 'general' | 'seo' | 'contacts' | 'requisites' | 'banner' | 'homepage' | 'pages' | 'news';
     const [currentView, setCurrentView] = useState<View>('main');
 
     const goBack = () => setCurrentView('main');
@@ -345,10 +357,12 @@ const SiteSettings: React.FC = () => {
     if (currentView === 'general') return <GeneralSettings onBack={goBack} />;
     if (currentView === 'seo') return <SEOSettings onBack={goBack} />;
     if (currentView === 'contacts') return <ContactSettings onBack={goBack} />;
+    if (currentView === 'requisites') return <RequisitesSettings onBack={goBack} />;
     if (currentView === 'banner') return <BannerSettings onBack={goBack} />;
     if (currentView === 'homepage') return <HomepageSettings onBack={goBack} />;
-    if (currentView === 'news') return <NewsSettings onBack={goBack} />;
-    if (currentView === 'pages') return <PagesSettings onBack={goBack} />;
+    if (currentView === 'pages') return <SettingsSectionWrapper title="Управление страницами" onBack={goBack}><ManagePages /></SettingsSectionWrapper>;
+    if (currentView === 'news') return <SettingsSectionWrapper title="Управление новостями" onBack={goBack}><ManageNews /></SettingsSectionWrapper>;
+
     
     // Default to 'main' view
     return (
@@ -373,6 +387,24 @@ const SiteSettings: React.FC = () => {
                     description="Телефон, email и адрес в подвале."
                     onClick={() => setCurrentView('contacts')}
                 />
+                 <SettingsCard 
+                    icon="business"
+                    title="Реквизиты"
+                    description="Юридическая информация о компании."
+                    onClick={() => setCurrentView('requisites')}
+                />
+                 <SettingsCard 
+                    icon="article"
+                    title="Управление новостями"
+                    description="Создание и редактирование новостей."
+                    onClick={() => setCurrentView('news')}
+                />
+                <SettingsCard 
+                    icon="description"
+                    title="Управление страницами"
+                    description="Редактирование страниц и навигации."
+                    onClick={() => setCurrentView('pages')}
+                />
                 <SettingsCard 
                     icon="view_carousel"
                     title="Рекламный баннер"
@@ -384,18 +416,6 @@ const SiteSettings: React.FC = () => {
                     title="Главная страница"
                     description="Настройте порядок и видимость блоков."
                     onClick={() => setCurrentView('homepage')}
-                />
-                 <SettingsCard 
-                    icon="article"
-                    title="Новости"
-                    description="Управление новостями и акциями."
-                    onClick={() => setCurrentView('news')}
-                />
-                <SettingsCard 
-                    icon="description"
-                    title="Страницы"
-                    description="Редактирование статических страниц."
-                    onClick={() => setCurrentView('pages')}
                 />
             </div>
         </div>

@@ -10,18 +10,13 @@ import {
     signOut 
 } from 'firebase/auth';
 
+
 import { mockProducts, mockCategories, mockNews } from '../constants';
 import { Product, Category, NewsArticle, Page, SiteSettings, HomepageBlock, User, Order, Vehicle, Notification, UserRole, CartItem, ImportLogEntry, OrderItemStatus } from '../types';
 
 // --- Helper to convert Firestore doc to our types ---
 const fromDoc = <T>(d: any): T => ({ ...d.data(), id: d.id } as T);
 const fromDocs = <T>(snapshot: any): T[] => snapshot.docs.map((d: any) => fromDoc<T>(d));
-
-const systemPages: Page[] = [
-    { id: 'system_home', title: 'Главная страница', slug: 'home', content: [], showInHeader: false, showInFooter: false, isSystemPage: true },
-    { id: 'system_catalog', title: 'Каталог', slug: 'catalog', content: [], showInHeader: false, showInFooter: false, isSystemPage: true },
-    { id: 'system_profile', title: 'Личный кабинет', slug: 'profile', content: [], showInHeader: false, showInFooter: false, isSystemPage: true },
-];
 
 export const api = {
     // --- Auth ---
@@ -64,6 +59,17 @@ export const api = {
     getCategories: async (): Promise<Category[]> => fromDocs(await getDocs(collection(db, "categories"))),
     getNews: async (): Promise<NewsArticle[]> => fromDocs(await getDocs(collection(db, "news"))),
     getPages: async (): Promise<Page[]> => {
+        const settings = await api.getSiteSettings();
+        const pageConfig = settings?.systemPagesConfig || {};
+        
+        const systemPages: Page[] = [
+            { id: 'system_home', title: 'Главная страница', slug: 'home', content: [], showInHeader: pageConfig.home?.showInHeader ?? true, showInFooter: pageConfig.home?.showInFooter ?? true, isSystemPage: true },
+            { id: 'system_catalog', title: 'Каталог', slug: 'catalog', content: [], showInHeader: pageConfig.catalog?.showInHeader ?? true, showInFooter: pageConfig.catalog?.showInFooter ?? true, isSystemPage: true },
+            { id: 'system_profile', title: 'Личный кабинет', slug: 'profile', content: [], showInHeader: pageConfig.profile?.showInHeader ?? false, showInFooter: pageConfig.profile?.showInFooter ?? true, isSystemPage: true },
+            { id: 'system_news', title: 'Новости', slug: 'news', content: [], showInHeader: pageConfig.news?.showInHeader ?? true, showInFooter: pageConfig.news?.showInFooter ?? true, isSystemPage: true },
+            { id: 'system_contacts', title: 'Контакты', slug: 'contacts', content: [], showInHeader: pageConfig.contacts?.showInHeader ?? false, showInFooter: pageConfig.contacts?.showInFooter ?? true, isSystemPage: true },
+        ];
+        
         const customPages = fromDocs<Page>(await getDocs(collection(db, "pages")));
         return [...systemPages, ...customPages];
     },
@@ -258,9 +264,23 @@ export const api = {
             batch.set(docRef, article);
         });
 
-        const defaultSiteSettings = {
+        const defaultSiteSettings: SiteSettings = {
             siteName: 'Zap-z.ru', logoUrl: '', seoTitle: 'Zap-z.ru: Auto Parts Store', seoDescription: 'Интернет-магазин автозапчастей', seoKeywords: 'автозапчасти',
-            contactPhone: '+7 (800) 555-35-35', contactEmail: 'support@zap-z.ru', contactAddress: 'г. Москва, ул. Пушкина, д. 1', promoBanners: [], promoBannerSpeed: 5, promoBannerHeight: 320
+            contactPhone: '+7 (800) 555-35-35', contactEmail: 'support@zap-z.ru', contactAddress: 'г. Москва, ул. Пушкина, д. 1', 
+            contactWhatsapp: '+79991234567',
+            contactTelegram: 'zapz_support',
+            contactMapIframe: `<div style="position:relative;overflow:hidden;border-radius: 8px;"><a href="https://yandex.ru/maps/213/moscow/?utm_medium=mapframe&utm_source=maps" style="color:#eee;font-size:12px;position:absolute;top:0px;">Москва</a><a href="https://yandex.ru/maps/213/moscow/house/ulitsa_pushkina_1/Z04Ycw5iQUcDQFtvfXt1d3hmYw==/?ll=37.617671%2C55.755819&utm_medium=mapframe&utm_source=maps" style="color:#eee;font-size:12px;position:absolute;top:14px;">Улица Пушкина, 1 на карте Москвы</a><iframe src="https://yandex.ru/map-widget/v1/?ll=37.617671%2C55.755819&house=Z04Ycw5iQUcDQFtvfXt1d3hmYw==&z=17" width="100%" height="400" frameborder="0" allowfullscreen="true" style="position:relative;"></iframe></div>`,
+            promoBanners: [], promoBannerSpeed: 5, promoBannerHeight: 320,
+            systemPagesConfig: {
+                home: { showInHeader: true, showInFooter: true },
+                catalog: { showInHeader: true, showInFooter: true },
+                profile: { showInHeader: false, showInFooter: true },
+                news: { showInHeader: true, showInFooter: true },
+                contacts: { showInHeader: false, showInFooter: true },
+            },
+            companyName: 'ООО "ЗАП-З"',
+            ogrn: '1234567890123',
+            inn: '1234567890',
         };
         batch.set(doc(db, "settings", "site"), defaultSiteSettings);
 
@@ -272,6 +292,7 @@ export const api = {
             { id: 'news', title: 'Новости', enabled: true },
         ];
         batch.set(doc(db, "settings", "homepage"), { blocks: defaultHomepageBlocks });
+
         batch.set(doc(db, "counters", "orders"), { count: 100 });
 
         await batch.commit();

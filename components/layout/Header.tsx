@@ -21,7 +21,7 @@ interface HeaderProps {
     onNavOpen: () => void;
     onAuthOpen: () => void;
     onCartOpen: () => void;
-    onNavigate: (page: 'home' | 'catalog' | 'profile' | 'admin' | 'page', slug?: string | null, subPage?: ProfileTab | null) => void;
+    onNavigate: (page: 'home' | 'catalog' | 'profile' | 'admin' | 'page' | 'news' | 'contacts', slug?: string | null, subPage?: ProfileTab | null) => void;
 }
 
 const Header: React.FC<HeaderProps> = ({ onNavOpen, onAuthOpen, onCartOpen, onNavigate }) => {
@@ -118,26 +118,16 @@ const Header: React.FC<HeaderProps> = ({ onNavOpen, onAuthOpen, onCartOpen, onNa
              <nav className="border-t border-gray-200 dark:border-gray-700 hidden md:block">
                 <div className="container mx-auto px-4">
                     <ul className="flex items-center space-x-8 h-12">
-                        <li>
-                            <a
-                                href="#"
-                                onClick={(e) => { e.preventDefault(); onNavigate('home'); }}
-                                className="text-sm font-medium text-gray-600 dark:text-gray-300 hover:text-primary dark:hover:text-primary-light transition-colors"
-                            >
-                                Главная
-                            </a>
-                        </li>
                         {headerPages.map(page => (
                             <li key={page.id}>
                                 <a
                                     href="#"
                                     onClick={(e) => { 
                                         e.preventDefault(); 
-                                        if (page.isSystemPage) {
-                                            onNavigate(page.slug as any);
-                                        } else {
-                                            onNavigate('page', page.slug); 
-                                        }
+                                        // System pages use their slug as the page type, custom pages are all of type 'page'
+                                        const pageType = page.isSystemPage ? page.slug as any : 'page';
+                                        const slug = page.isSystemPage ? null : page.slug;
+                                        onNavigate(pageType, slug); 
                                     }}
                                     className="text-sm font-medium text-gray-600 dark:text-gray-300 hover:text-primary dark:hover:text-primary-light transition-colors"
                                 >

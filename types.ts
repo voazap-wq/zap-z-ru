@@ -122,8 +122,14 @@ export interface ColumnsBlock {
     }[];
 }
 
+export interface HtmlBlock {
+  id: string;
+  type: 'html';
+  content: string;
+}
 
-export type PageBlock = TextBlock | ImageBlock | ButtonBlock | ProductGridBlock | ImageCarouselBlock | ColumnsBlock;
+
+export type PageBlock = TextBlock | ImageBlock | ButtonBlock | ProductGridBlock | ImageCarouselBlock | ColumnsBlock | HtmlBlock;
 
 
 export interface Page {
@@ -152,9 +158,18 @@ export interface SiteSettings {
     contactPhone: string;
     contactEmail: string;
     contactAddress: string;
+    contactWhatsapp?: string;
+    contactTelegram?: string;
+    contactMapIframe?: string;
     promoBanners: PromoBanner[];
     promoBannerSpeed: number; // in seconds
     promoBannerHeight: number; // in pixels
+    systemPagesConfig?: {
+        [slug: string]: { showInHeader: boolean; showInFooter: boolean; };
+    };
+    companyName?: string;
+    ogrn?: string;
+    inn?: string;
 }
 
 export interface HomepageBlock {

@@ -6,8 +6,6 @@ import Dashboard from './Dashboard';
 import ManageUsers from './ManageUsers';
 import ManageProducts from './ManageProducts';
 import ManageCategories from './ManageCategories';
-import ManageNews from './ManageNews';
-import ManagePages from './ManagePages';
 import ManageOrders from './ManageOrders';
 import SiteSettings from './SiteSettings';
 import { useAppContext } from '../../hooks/useAppContext';
@@ -21,8 +19,6 @@ export type AdminSection =
   | 'products'
   | 'categories'
   | 'orders'
-  | 'news'
-  | 'pages'
   | 'settings';
 
 interface AdminPageProps {

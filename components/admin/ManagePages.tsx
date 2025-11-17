@@ -9,7 +9,7 @@ import PageDialog from './PageDialog';
 import ConfirmDialog from '../ui/ConfirmDialog';
 
 const ManagePages: React.FC = () => {
-    const { pages, updatePage, deletePage, showSnackbar } = useAppContext();
+    const { pages, updatePage, deletePage, siteSettings, updateSiteSettings, showSnackbar } = useAppContext();
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [pageToEdit, setPageToEdit] = useState<Page | null>(null);
     const [pageToDelete, setPageToDelete] = useState<Page | null>(null);
@@ -36,17 +36,31 @@ const ManagePages: React.FC = () => {
     };
 
     const handleToggleVisibility = async (page: Page, field: 'showInHeader' | 'showInFooter') => {
-        const updatedData: Omit<Page, 'id'> = {
-            ...page,
-            [field]: !page[field],
-        };
         try {
-            await updatePage(page.id, updatedData);
+            if (page.isSystemPage) {
+                if (!siteSettings) return;
+                const currentConfig = siteSettings.systemPagesConfig || {};
+                const newConfig = { ...currentConfig };
+                
+                // Ensure the slug entry exists before modification
+                if (!newConfig[page.slug]) {
+                     newConfig[page.slug] = { showInHeader: false, showInFooter: false };
+                }
+
+                newConfig[page.slug] = {
+                    ...newConfig[page.slug],
+                    [field]: !page[field],
+                };
+                await updateSiteSettings({ ...siteSettings, systemPagesConfig: newConfig });
+            } else {
+                await updatePage(page.id, { ...page, [field]: !page[field] });
+            }
         } catch (error) {
             console.error("Failed to update page visibility", error);
             showSnackbar(error instanceof Error ? error.message : 'Не удалось обновить страницу', 'error');
         }
     };
+
 
     const columns: TableColumn<Page>[] = useMemo(() => [
         { 
@@ -108,11 +122,12 @@ const ManagePages: React.FC = () => {
                 </div>
             ),
         },
-    ], []);
+    ], [pages]); // Depend on pages to re-render when checkboxes are clicked
 
     return (
         <div>
-            <div className="flex justify-end mb-4">
+            <div className="flex justify-between items-center mb-4">
+                <h1 className="text-2xl font-bold">Управление страницами</h1>
                 <Button onClick={handleAdd}>Добавить страницу</Button>
             </div>
             <DataTable columns={columns} data={pages} />

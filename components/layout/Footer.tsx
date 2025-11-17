@@ -3,7 +3,7 @@ import { useAppContext } from '../../hooks/useAppContext';
 import { ProfileTab } from '../domain/ProfilePage';
 
 interface FooterProps {
-    onNavigate: (page: 'home' | 'catalog' | 'profile' | 'admin' | 'page', slug?: string | null, subPage?: ProfileTab | null) => void;
+    onNavigate: (page: 'home' | 'catalog' | 'profile' | 'admin' | 'page' | 'news' | 'contacts', slug?: string | null, subPage?: ProfileTab | null) => void;
 }
 
 const Footer: React.FC<FooterProps> = ({ onNavigate }) => {

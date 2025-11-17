@@ -67,6 +67,10 @@ const renderBlock = (block: PageBlock, allProducts: any[]) => {
                 ))}
             </div>
         );
+    case 'html':
+      return (
+        <div dangerouslySetInnerHTML={{ __html: block.content }} />
+      );
     default:
       return null;
   }

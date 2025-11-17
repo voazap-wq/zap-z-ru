@@ -5,6 +5,7 @@ import Dialog from '../ui/Dialog';
 import Button from '../ui/Button';
 import TextField from '../ui/TextField';
 import { useAppContext } from '../../hooks/useAppContext';
+import ImageDropzone from '../ui/ImageDropzone';
 
 interface CategoryDialogProps {
   isOpen: boolean;
@@ -27,13 +28,7 @@ const CategoryDialog: React.FC<CategoryDialogProps> = ({ isOpen, onClose, catego
   
   const isEditing = !!category;
   const nameValue = watch('name');
-  const imageUrlValue = watch('imageUrl'); // Watch for preview
-
-  useEffect(() => {
-    // Register the imageUrl field programmatically for validation
-    register('imageUrl', { required: 'Изображение обязательно' });
-  }, [register]);
-
+  const imageUrlValue = watch('imageUrl');
 
   useEffect(() => {
     if (isOpen) {
@@ -43,14 +38,13 @@ const CategoryDialog: React.FC<CategoryDialogProps> = ({ isOpen, onClose, catego
         reset({
             name: '',
             slug: '',
-            imageUrl: '' // Start with no image
+            imageUrl: ''
         });
       }
     }
   }, [isOpen, category, reset]);
   
   useEffect(() => {
-    // Automatically generate slug from name, but only if user hasn't manually edited it.
     if (nameValue && !touchedFields.slug) {
       const slug = nameValue.toLowerCase()
         .replace(/а/g, 'a').replace(/б/g, 'b').replace(/в/g, 'v').replace(/г/g, 'g').replace(/д/g, 'd')
@@ -66,15 +60,8 @@ const CategoryDialog: React.FC<CategoryDialogProps> = ({ isOpen, onClose, catego
     }
   }, [nameValue, touchedFields.slug, setValue]);
 
-  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setValue('imageUrl', reader.result as string, { shouldValidate: true, shouldDirty: true });
-      };
-      reader.readAsDataURL(file);
-    }
+  const handleImageUpload = (base64: string) => {
+    setValue('imageUrl', base64, { shouldValidate: true, shouldDirty: true });
   };
 
   const onSubmit: SubmitHandler<FormData> = async (data) => {
@@ -101,21 +88,20 @@ const CategoryDialog: React.FC<CategoryDialogProps> = ({ isOpen, onClose, catego
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Изображение
             </label>
-            <div className="mt-1 flex items-center space-x-4">
-                <div 
-                  className="w-32 h-20 rounded-md bg-gray-200 dark:bg-gray-700 bg-cover bg-center shrink-0"
-                  style={{ backgroundImage: `url(${imageUrlValue || ''})` }}
-                  role="img"
-                  aria-label="Предпросмотр изображения"
-                >
-                  {!imageUrlValue && <span className="material-icons text-gray-400 flex items-center justify-center h-full">photo_size_select_actual</span>}
-                </div>
-                <label htmlFor="image-upload" className="cursor-pointer bg-white dark:bg-gray-800 py-2 px-3 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm leading-4 font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary">
-                  <span>Загрузить файл</span>
-                  <input id="image-upload" name="image-upload" type="file" className="sr-only" accept="image/*" onChange={handleFileChange} />
-                </label>
+            <ImageDropzone 
+                value={imageUrlValue || ''}
+                onChange={handleImageUpload}
+                className="min-h-[10rem]"
+            />
+            <div className="mt-2">
+                <TextField 
+                    id="imageUrl" 
+                    label="или вставьте URL" 
+                    register={register('imageUrl', { required: 'Изображение или URL обязательны' })}
+                    error={errors.imageUrl as any}
+                    placeholder="https://example.com/image.jpg"
+                />
             </div>
-            {errors.imageUrl && <p className="text-red-500 text-sm mt-1">{errors.imageUrl.message as any}</p>}
         </div>
 
         <div className="flex justify-end space-x-3 pt-4">

@@ -53,10 +53,13 @@ const ProductDialog: React.FC<ProductDialogProps> = ({ isOpen, onClose, product 
     }
   }, [isOpen, product, reset, categories]);
 
+  const handleImageUpload = (base64: string) => {
+    setValue('imageUrl', base64, { shouldValidate: true, shouldDirty: true });
+  };
+
   const onSubmit: SubmitHandler<FormData> = async (data) => {
     const productData = {
         ...data,
-        // FIX: The `inStock` property must be derived from `stockQuantity` to match the `Product` type.
         inStock: (data.stockQuantity || 0) > 0,
         arrivalDate: data.arrivalDate ? new Date(data.arrivalDate).toISOString() : undefined,
         analogs: Array.isArray(data.analogs) ? data.analogs : (data.analogs as unknown as string).split(',').map(s => s.trim()).filter(Boolean)
@@ -92,7 +95,8 @@ const ProductDialog: React.FC<ProductDialogProps> = ({ isOpen, onClose, product 
             </label>
             <ImageDropzone 
                 value={imageUrlValue || ''}
-                onChange={(base64) => setValue('imageUrl', base64, { shouldValidate: true, shouldDirty: true })}
+                onChange={handleImageUpload}
+                className="min-h-[10rem]"
             />
             <div className="flex items-center mt-2">
                 <TextField 

@@ -6,8 +6,9 @@ import Footer from './components/layout/Footer';
 import HomePage from './components/domain/HomePage';
 import CatalogPage from './components/domain/CatalogPage';
 import ProfilePage, { ProfileTab } from './components/domain/ProfilePage';
-import AdminPage from './components/admin/AdminPage';
+import NewsListPage from './components/domain/NewsListPage';
 import StaticPage from './components/domain/StaticPage';
+import ContactsPage from './components/domain/ContactsPage';
 import AuthDialog from './components/domain/AuthDialog';
 import CartView from './components/domain/CartView';
 import { api } from './services/api';
@@ -21,7 +22,7 @@ import Card from './components/ui/Card';
 import Button from './components/ui/Button';
 
 type PriceSort = 'none' | 'asc' | 'desc';
-type CurrentPage = 'home' | 'catalog' | 'profile' | 'admin' | 'page';
+type CurrentPage = 'home' | 'catalog' | 'profile' | 'admin' | 'page' | 'news' | 'contacts';
 
 const MainApp: React.FC = () => {
     const { 
@@ -171,6 +172,10 @@ const MainApp: React.FC = () => {
                     return <HomePage {...homePageProps} />;
                 }
                 return <ProfilePage initialTab={activeProfileTab} onVinSelect={handleVinSelect} />;
+            case 'news':
+                return <NewsListPage />;
+            case 'contacts':
+                return <ContactsPage />;
             case 'page':
                 const pageToRender = staticPagesForRouting.find(p => p.slug === activePageSlug);
                 if (pageToRender) {
@@ -568,6 +573,7 @@ const App: React.FC = () => {
   const updateSiteSettings = async (data: SiteSettings) => {
     const newSettings = await api.updateSiteSettings(data);
     setSiteSettings(newSettings);
+    setPages(await api.getPages()); // Reload pages to reflect new system page settings
     showSnackbar('Настройки сайта обновлены', 'success');
     return newSettings;
   };
